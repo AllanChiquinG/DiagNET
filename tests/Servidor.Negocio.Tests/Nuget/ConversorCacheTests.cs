@@ -16,6 +16,7 @@ public class ConversorCacheTests
             : ResultadoCompatibilidad.Incompatible, "inferida_dependency_groups");
     }
 
+    // El tipo de licencia del constructor es el «recibido de NuGet» de la prueba; cada prueba lo cambia con «with» cuando lo necesita.
     private static VersionPublicada Version(string v, string[]? grupos = null, string? licencia = "MIT", Deprecacion? dep = null, bool prerelease = false, DateTimeOffset? publicada = null) => new(
         v, v, prerelease, true, publicada ?? Fecha.AddMonths(-2), licencia,
         licencia is null ? null : licencia.StartsWith("http") ? TipoLicencia.Url : TipoLicencia.Expresion, dep, grupos ?? ["net8.0"], []);
@@ -205,15 +206,78 @@ public class ConversorCacheTests
         Assert.Equal(2, rec.CompatibilidadDeclarada.Count);
     }
 
-    [Fact]
-    public void La_licencia_de_expresion_se_reconoce_como_expresion_y_la_URL_como_URL()
+    [Theory]
+    [InlineData("MIT", TipoLicencia.Expresion)]
+    [InlineData("https://example.org/licencia", TipoLicencia.Url)]
+    [InlineData("LICENSE.txt", TipoLicencia.Archivo)]
+    [InlineData("https://example.org/esto-NuGet-lo-declaro-como-expresion", TipoLicencia.Expresion)] // el tipo recibido manda aunque el texto parezca una URL
+    public void El_tipo_de_licencia_recibido_se_conserva_en_la_cache_y_se_reconstruye_igual(string texto, TipoLicencia tipo)
     {
-        var a = Reconstruir(ConversorCache.Convertir(Info(Version("1.0.0", licencia: "Apache-2.0"), Version("2.0.0"))));
-        var b = Reconstruir(ConversorCache.Convertir(Info(Version("1.0.0", licencia: null), Version("2.0.0"))));
+        var original = Info(Version("1.0.0", licencia: texto) with { TipoLicencia = tipo }, Version("2.0.0"));
 
-        Assert.Equal(TipoLicencia.Expresion, a.Declarada!.TipoLicencia);
-        Assert.Null(b.Declarada!.Licencia);
-        Assert.Null(b.Declarada.TipoLicencia);
+        var rec = Reconstruir(ConversorCache.Convertir(original));
+
+        Assert.Equal(texto, rec.Declarada!.Licencia);
+        Assert.Equal(tipo, rec.Declarada.TipoLicencia);
+    }
+
+    [Theory]
+    [InlineData("https://example.org/licencia")]
+    [InlineData("MIT")]
+    public void Si_el_tipo_no_se_recibio_queda_desconocido_y_no_se_deduce_del_texto(string texto)
+    {
+        var original = Info(Version("1.0.0", licencia: texto) with { TipoLicencia = null }, Version("2.0.0"));
+
+        var rec = Reconstruir(ConversorCache.Convertir(original));
+
+        Assert.Equal(texto, rec.Declarada!.Licencia);
+        Assert.Null(rec.Declarada.TipoLicencia);
+    }
+
+    [Fact]
+    public void Una_fila_antigua_con_licencia_pero_sin_tipo_se_reconstruye_con_tipo_desconocido()
+    {
+        var fila = new MetadatoLibreria("Ejemplo.Paquete", "1.0.0", Fecha, null, "https://example.org/l", ["net8.0"], null, false, Fecha); // sin TipoLicencia: anterior a la migración
+
+        var rec = ConversorCache.Reconstruir("Ejemplo.Paquete", fila, null, null, ["net8.0"], true, new InferidorFalso());
+
+        Assert.Equal("https://example.org/l", rec.Declarada!.Licencia);
+        Assert.Null(rec.Declarada.TipoLicencia);
+    }
+
+    [Fact]
+    public void Las_razones_y_el_mensaje_de_la_deprecacion_se_conservan_para_explicar_el_diagnostico()
+    {
+        var dep = new Deprecacion(["Legacy", "CriticalBugs"], "Este paquete ya no se mantiene; usa Ejemplo.Moderno.", "Ejemplo.Moderno", "[2.0.0, )");
+        var original = Info(Version("1.0.0", dep: dep), Version("2.0.0"));
+
+        var paraCache = ConversorCache.Convertir(original);
+        var rec = Reconstruir(paraCache);
+
+        var fila = paraCache.Metadatos.Single(m => m.Version == "1.0.0");
+        Assert.Equal(["Legacy", "CriticalBugs"], fila.DeprecacionRazones);
+        Assert.Equal("Este paquete ya no se mantiene; usa Ejemplo.Moderno.", fila.DeprecacionMensaje);
+        Assert.Equal(["Legacy", "CriticalBugs"], rec.Declarada!.Deprecacion!.Razones);
+        Assert.Equal("Este paquete ya no se mantiene; usa Ejemplo.Moderno.", rec.Declarada.Deprecacion.Mensaje);
+        Assert.Equal("Ejemplo.Moderno", rec.Declarada.Deprecacion.PaqueteAlterno);
+    }
+
+    [Fact]
+    public void Un_paquete_sin_deprecacion_no_guarda_razones_ni_mensaje()
+    {
+        var fila = ConversorCache.Convertir(Info(Version("1.0.0"), Version("2.0.0"))).Metadatos.First();
+
+        Assert.Null(fila.DeprecacionRazones);
+        Assert.Null(fila.DeprecacionMensaje);
+    }
+
+    [Fact]
+    public void Una_deprecacion_sin_mensaje_ni_razones_no_las_inventa()
+    {
+        var rec = Reconstruir(ConversorCache.Convertir(Info(Version("1.0.0", dep: new Deprecacion([], null, null, null)), Version("2.0.0"))));
+
+        Assert.Empty(rec.Declarada!.Deprecacion!.Razones);
+        Assert.Null(rec.Declarada.Deprecacion.Mensaje);
     }
 
     [Fact]

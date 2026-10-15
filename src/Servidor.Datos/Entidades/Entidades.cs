@@ -43,6 +43,9 @@ public sealed class MetadatoLibreriaFila
     public DateTimeOffset FechaConsulta { get; set; }
     public string? PaqueteAlterno { get; set; }
     public string? RangoAlterno { get; set; }
+    public string? DeprecacionRazones { get; set; }
+    public string? DeprecacionMensaje { get; set; }
+    public string? TipoLicencia { get; set; }
 }
 
 public sealed class DiagnosticoFila

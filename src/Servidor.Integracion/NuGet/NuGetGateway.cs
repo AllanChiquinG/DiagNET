@@ -50,6 +50,15 @@ public sealed class NuGetGateway : IClienteNuGet
         ConsultaPaquete consulta, PresupuestoTiempo? presupuesto = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(consulta);
+        // LÍMITE EXTERNO (DEC-16): nuget.org limita el id a 100 caracteres al publicar (referencia oficial del .nuspec). Es distinto de los límites de
+        // lectura y almacenamiento de DiagNET (200, aprobados en E2/E3): un id de 101 a 200 caracteres SE LEE y SE GUARDA como declaración del
+        // proyecto, pero no puede existir en nuget.org, así que no se consulta.
+        if (LimitesDatos.Excede(consulta.Paquete, _opciones.MaxLongitudIdentificador))
+            return ResultadoNuGet<InformacionPaquete>.NoEncontrado(
+                $"El identificador tiene {LimitesDatos.Longitud(consulta.Paquete)} caracteres y nuget.org admite como máximo {_opciones.MaxLongitudIdentificador}; no puede existir allí (puede ser de otra fuente).",
+                [new Advertencia("identificador_excede_limite_nuget",
+                    $"«{LimitesDatos.Extracto(consulta.Paquete)}» supera el máximo de {_opciones.MaxLongitudIdentificador} caracteres de nuget.org; no se consultó.", consulta.Paquete)]);
+
         if (!_validador.EsIdentificadorValido(consulta.Paquete))
             return ResultadoNuGet<InformacionPaquete>.NoEncontrado(
                 "El identificador no tiene un formato válido de NuGet (letras, números, punto, guion y guion bajo); no existe en nuget.org.",

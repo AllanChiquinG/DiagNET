@@ -12,13 +12,14 @@ public sealed record ParaCache(
 /// Convierte lo leído de NuGet en filas de caché y reconstruye un <see cref="InformacionPaquete"/> desde ellas, de modo que un análisis servido
 /// desde la caché produzca el MISMO diagnóstico y las mismas recomendaciones que uno hecho con NuGet.
 /// <para>
-/// Se conserva en la caché: fecha de publicación, licencia (texto completo, sin límite), grupos de framework (incluido el grupo «para todos»),
-/// deprecado, <b>paquete alterno y su rango</b>, descargas y la selección de versiones (última estable y última compatible por TFM, con su bandera de completitud).
+/// Se conserva en la caché: fecha de publicación, licencia (texto completo, sin límite) <b>y su tipo tal como lo recibió NuGet</b>, grupos de framework
+/// (incluido el grupo «para todos»), deprecado, <b>razones y mensaje de la deprecación</b>, <b>paquete alterno y su rango</b>, descargas y la selección de
+/// versiones (última estable y última compatible por TFM, con su bandera de completitud).
 /// </para>
 /// <para>
-/// NO se conserva (limitación documentada; no cambia estados ni recomendaciones): razones y mensaje de la deprecación, vulnerabilidades (no se persisten),
-/// la última preliminar, si la versión estaba listada (se aproxima por la existencia de fecha) y el tipo exacto de licencia (se deduce: una URL empieza por http).
-/// La «última publicación» reconstruida es la de la última estable.
+/// NO se conserva (limitación documentada; no cambia estados ni recomendaciones): vulnerabilidades (no se persisten), la última preliminar y si la versión
+/// estaba listada (se aproxima por la existencia de fecha). El tipo de licencia NUNCA se deduce del texto: una fila sin tipo (p. ej. anterior a esta
+/// migración) lo reconstruye como desconocido. La «última publicación» reconstruida es la de la última estable.
 /// </para>
 /// Tratamiento por campo de lo que excede los límites de la base (nunca se recorta en silencio ni se descarta el análisis): un identificador de más de 200
 /// caracteres o una versión normalizada de más de 100 no se cachea (advertencia); el rango alterno de más de 100 ya lo descarta el mapeador (advertencia).
@@ -88,7 +89,10 @@ public static class ConversorCache
             Deprecado: v.Deprecacion is not null,
             info.FechaConsulta,
             alterno,
-            rango);
+            rango,
+            v.Deprecacion?.Razones.ToList(),
+            v.Deprecacion?.Mensaje,
+            v.TipoLicencia);   // el tipo recibido (null = desconocido)
     }
 
     private static SeleccionPaquete? Seleccion(InformacionPaquete info, List<Advertencia> avisos)
@@ -166,14 +170,10 @@ public static class ConversorCache
     private static VersionPublicada ADeVersion(MetadatoLibreria m)
     {
         var normal = NormalizadorPaquetes.VersionNormalizada(m.Version);
-        var licencia = m.Licencia;
-        TipoLicencia? tipo = licencia is null ? null
-            : licencia.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || licencia.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-                ? TipoLicencia.Url
-                : TipoLicencia.Expresion;
-        var deprecacion = m.Deprecado == true ? new Deprecacion([], null, m.PaqueteAlterno, m.RangoAlterno) : null;
+        // El tipo es el recibido de NuGet y guardado; si la fila no lo tiene, queda desconocido (no se deduce del texto).
+        var deprecacion = m.Deprecado == true ? new Deprecacion(m.DeprecacionRazones ?? [], m.DeprecacionMensaje, m.PaqueteAlterno, m.RangoAlterno) : null;
         return new VersionPublicada(
-            normal, m.Version, normal.Contains('-'), m.FechaPublicacion is not null, m.FechaPublicacion, licencia, tipo, deprecacion,
+            normal, m.Version, normal.Contains('-'), m.FechaPublicacion is not null, m.FechaPublicacion, m.Licencia, m.TipoLicencia, deprecacion,
             m.FrameworksObjetivo ?? [], []);
     }
 

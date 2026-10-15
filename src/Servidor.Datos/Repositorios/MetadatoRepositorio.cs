@@ -27,6 +27,8 @@ public sealed class MetadatoRepositorio(IDbContextFactory<AppDbContext> fabrica)
         var frameworks = m.FrameworksObjetivo is null ? null : Serializacion.AJson(m.FrameworksObjetivo);
         var publicacion = m.FechaPublicacion?.ToUniversalTime();
         var consulta = m.FechaConsulta.ToUniversalTime();
+        var razones = m.DeprecacionRazones is null ? null : Serializacion.AJson(m.DeprecacionRazones);
+        var tipoLicencia = m.TipoLicencia is null ? null : Serializacion.Texto(m.TipoLicencia.Value);
 
         await using var db = await fabrica.CreateDbContextAsync(ct);
         // Upsert atómico: varias solicitudes simultáneas por el mismo paquete y versión no duplican ni fallan.
@@ -34,11 +36,11 @@ public sealed class MetadatoRepositorio(IDbContextFactory<AppDbContext> fabrica)
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO metadato_libreria
                 (nombre_paquete, version, fecha_publicacion, descargas, licencia, frameworks_objetivo, compatible_aot, deprecado, fecha_consulta,
-                 paquete_alterno, rango_alterno)
+                 paquete_alterno, rango_alterno, deprecacion_razones, deprecacion_mensaje, tipo_licencia)
             VALUES
                 ({m.NombrePaquete.Trim()}, {version}, {publicacion}::timestamptz, {m.Descargas}::bigint, {m.Licencia}::text,
                  {frameworks}::jsonb, {m.CompatibleAot}::boolean, {m.Deprecado}::boolean, {consulta}::timestamptz,
-                 {m.PaqueteAlterno}::varchar, {m.RangoAlterno}::varchar)
+                 {m.PaqueteAlterno}::varchar, {m.RangoAlterno}::varchar, {razones}::jsonb, {m.DeprecacionMensaje}::text, {tipoLicencia}::varchar)
             ON CONFLICT (lower(nombre_paquete), version) DO UPDATE SET
                 fecha_publicacion   = EXCLUDED.fecha_publicacion,
                 descargas           = EXCLUDED.descargas,
@@ -48,7 +50,10 @@ public sealed class MetadatoRepositorio(IDbContextFactory<AppDbContext> fabrica)
                 deprecado           = EXCLUDED.deprecado,
                 fecha_consulta      = EXCLUDED.fecha_consulta,
                 paquete_alterno     = EXCLUDED.paquete_alterno,
-                rango_alterno       = EXCLUDED.rango_alterno
+                rango_alterno       = EXCLUDED.rango_alterno,
+                deprecacion_razones = EXCLUDED.deprecacion_razones,
+                deprecacion_mensaje = EXCLUDED.deprecacion_mensaje,
+                tipo_licencia       = EXCLUDED.tipo_licencia
             WHERE metadato_libreria.fecha_consulta <= EXCLUDED.fecha_consulta
             """, ct);
     }
@@ -115,5 +120,8 @@ public sealed class MetadatoRepositorio(IDbContextFactory<AppDbContext> fabrica)
         f.Deprecado,
         f.FechaConsulta,
         f.PaqueteAlterno,
-        f.RangoAlterno);
+        f.RangoAlterno,
+        f.DeprecacionRazones is null ? null : Serializacion.DeJson<List<string>>(f.DeprecacionRazones),
+        f.DeprecacionMensaje,
+        f.TipoLicencia is null ? null : Serializacion.Enumeracion<TipoLicencia>(f.TipoLicencia));
 }

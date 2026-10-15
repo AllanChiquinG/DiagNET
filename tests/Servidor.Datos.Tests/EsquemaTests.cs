@@ -64,6 +64,8 @@ public class EsquemaTests(BaseDeDatosFixture bd) : IClassFixture<BaseDeDatosFixt
         "fecha_consulta:timestamp with time zone:notnull",
         // E4: reemplazo declarado por el autor al deprecar (sobrevive a la caché)
         "paquete_alterno:varchar(200):null", "rango_alterno:varchar(100):null",
+        // E4 (cierre): para explicar el diagnóstico desde la caché y no deducir el tipo de licencia
+        "deprecacion_razones:jsonb:null", "deprecacion_mensaje:text:null", "tipo_licencia:varchar(20):null",
     })]
     [InlineData("diagnostico", new[]
     {
@@ -91,7 +93,7 @@ public class EsquemaTests(BaseDeDatosFixture bd) : IClassFixture<BaseDeDatosFixt
     {
         var checks = await ConsultaAsync("SELECT conname FROM pg_constraint WHERE contype = 'c' AND connamespace = 'public'::regnamespace ORDER BY 1");
         Assert.Equal(
-            ["ck_analisis_estado", "ck_analisis_total", "ck_dependencia_tipo_version", "ck_diagnostico_estado", "ck_diagnostico_origen", "ck_metadato_descargas", "ck_recomendacion_tipo"],
+            ["ck_analisis_estado", "ck_analisis_total", "ck_dependencia_tipo_version", "ck_diagnostico_estado", "ck_diagnostico_origen", "ck_metadato_descargas", "ck_metadato_tipo_licencia", "ck_recomendacion_tipo"],
             checks);
 
         var foraneas = await ConsultaAsync(
@@ -155,7 +157,7 @@ public class EsquemaTests(BaseDeDatosFixture bd) : IClassFixture<BaseDeDatosFixt
         {
             await using var db = await propio.Fabrica.CreateDbContextAsync();
             var migraciones = db.Database.GetMigrations().ToList();
-            Assert.Equal(3, migraciones.Count);
+            Assert.Equal(4, migraciones.Count);
             var migrador = db.GetService<IMigrator>();
 
             await migrador.MigrateAsync(migraciones[0]); // vuelve al esquema inicial (equivalente a schema.sql)
@@ -185,7 +187,7 @@ public class EsquemaTests(BaseDeDatosFixture bd) : IClassFixture<BaseDeDatosFixt
             var migraciones = db.Database.GetMigrations().ToList();
             var migrador = db.GetService<IMigrator>();
 
-            await migrador.MigrateAsync(migraciones[1]); // esquema anterior: licencia varchar(200), sin columnas de alterno
+            await migrador.MigrateAsync(migraciones[1]); // esquema anterior: licencia varchar(200), sin columnas de alterno ni de deprecación
             await propio.EjecutarAsync(
                 "INSERT INTO metadato_libreria (nombre_paquete, version, descargas, licencia, frameworks_objetivo, deprecado, fecha_consulta) VALUES " +
                 "('Ejemplo.Antiguo', '1.0.0', 42, 'MIT', '[\"net8.0\"]', true, '2026-10-01T00:00:00Z')," +
@@ -201,6 +203,8 @@ public class EsquemaTests(BaseDeDatosFixture bd) : IClassFixture<BaseDeDatosFixt
             Assert.Equal(1, await propio.EscalarAsync<int>("SELECT count(*) FROM metadato_libreria WHERE nombre_paquete = 'Ejemplo.SinDatos' AND licencia IS NULL AND deprecado IS NULL AND descargas IS NULL"));
             Assert.Equal(2, await propio.EscalarAsync<int>("SELECT count(*) FROM metadato_libreria WHERE paquete_alterno IS NULL AND rango_alterno IS NULL"));
             Assert.Equal(1, await propio.EscalarAsync<int>("SELECT count(*) FROM seleccion_paquete"));
+            // las filas anteriores no tienen tipo de licencia ni razones: quedan desconocidos (no se deducen)
+            Assert.Equal(2, await propio.EscalarAsync<int>("SELECT count(*) FROM metadato_libreria WHERE tipo_licencia IS NULL AND deprecacion_razones IS NULL AND deprecacion_mensaje IS NULL"));
             // ya admite una licencia larga (una URL de 1000 caracteres)
             await propio.EjecutarAsync($"UPDATE metadato_libreria SET licencia = '{new string('u', 1000)}' WHERE nombre_paquete = 'Ejemplo.Antiguo'");
             Assert.Equal(1000, await propio.EscalarAsync<int>("SELECT char_length(licencia) FROM metadato_libreria WHERE nombre_paquete = 'Ejemplo.Antiguo'"));

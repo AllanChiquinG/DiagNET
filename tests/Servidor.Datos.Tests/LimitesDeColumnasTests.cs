@@ -19,6 +19,7 @@ public class LimitesDeColumnasTests(BaseDeDatosFixture bd) : IClassFixture<BaseD
     [InlineData("metadato_libreria", "version", LimitesDatos.Version)]
     [InlineData("metadato_libreria", "paquete_alterno", LimitesDatos.NombrePaquete)]
     [InlineData("metadato_libreria", "rango_alterno", LimitesDatos.RangoAlterno)]
+    [InlineData("metadato_libreria", "tipo_licencia", LimitesDatos.TipoLicencia)]
     [InlineData("recomendacion", "paquete_alternativo", LimitesDatos.NombrePaquete)]
     [InlineData("recomendacion", "version_sugerida", LimitesDatos.Version)]
     [InlineData("seleccion_paquete", "nombre_paquete", LimitesDatos.NombrePaquete)]
@@ -39,7 +40,7 @@ public class LimitesDeColumnasTests(BaseDeDatosFixture bd) : IClassFixture<BaseD
         var controladas = new HashSet<string>
         {
             "analisis.nombre_archivo", "analisis.framework_objetivo", "analisis.version_reglas", "dependencia.nombre_paquete", "dependencia.version_declarada",
-            "diagnostico.ultima_version", "metadato_libreria.nombre_paquete", "metadato_libreria.version", "metadato_libreria.paquete_alterno", "metadato_libreria.rango_alterno",
+            "diagnostico.ultima_version", "metadato_libreria.nombre_paquete", "metadato_libreria.version", "metadato_libreria.paquete_alterno", "metadato_libreria.rango_alterno", "metadato_libreria.tipo_licencia",
             "recomendacion.paquete_alternativo", "recomendacion.version_sugerida", "seleccion_paquete.nombre_paquete", "seleccion_paquete.ultima_version_estable",
             // Valores cerrados (enumeraciones con CHECK), no son texto libre:
             "analisis.estado", "dependencia.tipo_version", "diagnostico.estado", "diagnostico.origen", "recomendacion.tipo",

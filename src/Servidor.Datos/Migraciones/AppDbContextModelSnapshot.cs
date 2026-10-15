@@ -277,6 +277,16 @@ namespace Servidor.Datos.Migraciones
                         .HasColumnName("compatible_aot")
                         .HasComment("NULL = no determinado.");
 
+                    b.Property<string>("DeprecacionMensaje")
+                        .HasColumnType("text")
+                        .HasColumnName("deprecacion_mensaje")
+                        .HasComment("Mensaje de la deprecación (texto externo tratado como dato; acotado a 1000 caracteres al leerlo).");
+
+                    b.Property<string>("DeprecacionRazones")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("deprecacion_razones")
+                        .HasComment("Razones de la deprecación publicadas por NuGet (lista JSON); NULL si no está deprecado o no se determinó.");
+
                     b.Property<bool?>("Deprecado")
                         .HasColumnType("boolean")
                         .HasColumnName("deprecado")
@@ -323,6 +333,12 @@ namespace Servidor.Datos.Migraciones
                         .HasColumnName("rango_alterno")
                         .HasComment("Rango de versiones del paquete alterno, tal como lo declara NuGet.");
 
+                    b.Property<string>("TipoLicencia")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tipo_licencia")
+                        .HasComment("Tipo de licencia RECIBIDO de NuGet (expresion, url o archivo). NULL = desconocido: nunca se deduce del texto.");
+
                     b.Property<string>("Version")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -340,6 +356,8 @@ namespace Servidor.Datos.Migraciones
                             t.HasComment("Metadatos de NuGet por paquete y versión; funciona como caché compartida entre análisis.");
 
                             t.HasCheckConstraint("ck_metadato_descargas", "descargas IS NULL OR descargas >= 0");
+
+                            t.HasCheckConstraint("ck_metadato_tipo_licencia", "tipo_licencia IS NULL OR tipo_licencia IN ('expresion','url','archivo')");
                         });
                 });
 

@@ -72,6 +72,7 @@ internal sealed class MetadatoLibreriaConfiguracion : IEntityTypeConfiguration<M
         {
             t.HasComment("Metadatos de NuGet por paquete y versión; funciona como caché compartida entre análisis.");
             t.HasCheckConstraint("ck_metadato_descargas", "descargas IS NULL OR descargas >= 0");
+            t.HasCheckConstraint("ck_metadato_tipo_licencia", "tipo_licencia IS NULL OR tipo_licencia IN ('expresion','url','archivo')");
         });
         e.HasKey(x => x.Id).HasName("pk_metadato_libreria");
         e.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
@@ -88,6 +89,12 @@ internal sealed class MetadatoLibreriaConfiguracion : IEntityTypeConfiguration<M
             .HasComment("Reemplazo declarado por el autor al deprecar el paquete (NULL si no hay o no se determinó).");
         e.Property(x => x.RangoAlterno).HasColumnName("rango_alterno").HasMaxLength(LimitesDatos.RangoAlterno)
             .HasComment("Rango de versiones del paquete alterno, tal como lo declara NuGet.");
+        e.Property(x => x.DeprecacionRazones).HasColumnName("deprecacion_razones").HasColumnType("jsonb")
+            .HasComment("Razones de la deprecación publicadas por NuGet (lista JSON); NULL si no está deprecado o no se determinó.");
+        e.Property(x => x.DeprecacionMensaje).HasColumnName("deprecacion_mensaje").HasColumnType("text")
+            .HasComment("Mensaje de la deprecación (texto externo tratado como dato; acotado a 1000 caracteres al leerlo).");
+        e.Property(x => x.TipoLicencia).HasColumnName("tipo_licencia").HasMaxLength(LimitesDatos.TipoLicencia)
+            .HasComment("Tipo de licencia RECIBIDO de NuGet (expresion, url o archivo). NULL = desconocido: nunca se deduce del texto.");
         e.Property(x => x.FechaConsulta).HasColumnName("fecha_consulta").HasColumnType("timestamptz").HasDefaultValueSql("now()");
         e.HasIndex(x => x.FechaConsulta).HasDatabaseName("ix_metadato_fecha_consulta");
         // El índice único sobre (lower(nombre_paquete), version) es una expresión: se crea con SQL en la migración.

@@ -15,6 +15,7 @@ public static class LimitesDatos
     public const int NombrePaquete = 200;
     public const int Version = 100;
     public const int RangoAlterno = 100;
+    public const int TipoLicencia = 20;
     public const int VersionReglas = 30;
 
     /// <summary>Longitud tal como la cuenta PostgreSQL en varchar(n): caracteres Unicode (un emoji cuenta 1, no 2).</summary>

@@ -69,6 +69,8 @@ public class CacheEquivalenciaTests(BaseDeDatosFixture bd) : IClassFixture<BaseD
         {
             i.Declarada.Version, i.Declarada.Publicada, i.Declarada.Licencia, i.Declarada.TipoLicencia,
             Deprecado = i.Declarada.Deprecacion is not null,
+            Razones = i.Declarada.Deprecacion?.Razones,
+            Mensaje = i.Declarada.Deprecacion?.Mensaje,
             Alterno = i.Declarada.Deprecacion?.PaqueteAlterno,
             Rango = i.Declarada.Deprecacion?.RangoVersionAlterno,
             i.Declarada.GruposFramework,
@@ -122,23 +124,41 @@ public class CacheEquivalenciaTests(BaseDeDatosFixture bd) : IClassFixture<BaseD
     }
 
     [Fact]
-    public async Task Lo_que_la_cache_no_conserva_esta_documentado_y_no_cambia_el_resultado()
+    public async Task Razones_mensaje_y_tipo_de_licencia_recibido_sobreviven_a_la_cache_para_explicar_el_diagnostico()
     {
         var consulta = new ConsultaPaquete("Ejemplo.Deprecado", "1.0.0", ["net8.0"]);
         var original = (await Gateway().ObtenerPaqueteAsync(consulta)).Valor!;
+        Assert.Equal("Legacy", Assert.Single(original.Declarada!.Deprecacion!.Razones));
+        Assert.Equal("Obsoleto", original.Declarada.Deprecacion.Mensaje);
+        Assert.Equal(TipoLicencia.Url, original.Declarada.TipoLicencia); // el tipo que entregó NuGet (licenseUrl)
         var paraCache = ConversorCache.Convertir(original);
         foreach (var fila in paraCache.Metadatos) await bd.Metadatos.GuardarAsync(fila);
         await bd.Metadatos.GuardarSeleccionAsync(paraCache.Seleccion!);
 
+        await using var reinicio = bd.Reiniciar();
+        var metadatos = reinicio.GetRequiredService<IMetadatoRepositorio>();
         var reconstruido = ConversorCache.Reconstruir("Ejemplo.Deprecado",
-            await bd.Metadatos.BuscarAsync("Ejemplo.Deprecado", "1.0.0"), await bd.Metadatos.BuscarAsync("Ejemplo.Deprecado", "3.0.0"),
-            await bd.Metadatos.BuscarSeleccionAsync("Ejemplo.Deprecado"), consulta.FrameworksEvaluados, true, new InferidorCompatibilidad());
+            await metadatos.BuscarAsync("Ejemplo.Deprecado", "1.0.0"), await metadatos.BuscarAsync("Ejemplo.Deprecado", "3.0.0"),
+            await metadatos.BuscarSeleccionAsync("Ejemplo.Deprecado"), consulta.FrameworksEvaluados, true, new InferidorCompatibilidad());
 
-        // Razones y mensaje de la deprecación no están en la caché (el estado y el reemplazo sí).
-        Assert.Equal("Legacy", Assert.Single(original.Declarada!.Deprecacion!.Razones));
-        Assert.Empty(reconstruido.Declarada!.Deprecacion!.Razones);
-        Assert.Null(reconstruido.Declarada.Deprecacion.Mensaje);
+        Assert.Equal(["Legacy"], reconstruido.Declarada!.Deprecacion!.Razones);
+        Assert.Equal("Obsoleto", reconstruido.Declarada.Deprecacion.Mensaje);
+        Assert.Equal(TipoLicencia.Url, reconstruido.Declarada.TipoLicencia);
         Assert.Equal(original.Declarada.Deprecacion.PaqueteAlterno, reconstruido.Declarada.Deprecacion.PaqueteAlterno);
+        Assert.Equal(Proyeccion(original), Proyeccion(reconstruido));
+    }
+
+    [Fact]
+    public async Task Una_licencia_que_parece_URL_pero_NuGet_entrego_como_expresion_conserva_el_tipo_recibido()
+    {
+        var info = new InformacionPaquete("Ejemplo.Rara", EstadoVersionDeclarada.Publicada,
+            new VersionPublicada("1.0.0", "1.0.0", false, true, Muestras.Base, "https://no-es-url-segun-nuget", TipoLicencia.Expresion, null, ["net8.0"], []),
+            [], null, null, new Dictionary<string, VersionPublicada?>(), null, true, 1, 1, 1, Muestras.Base);
+        foreach (var fila in ConversorCache.Convertir(info).Metadatos) await bd.Metadatos.GuardarAsync(fila);
+
+        var rec = ConversorCache.Reconstruir("Ejemplo.Rara", await bd.Metadatos.BuscarAsync("Ejemplo.Rara", "1.0.0"), null, null, ["net8.0"], true, new InferidorCompatibilidad());
+
+        Assert.Equal(TipoLicencia.Expresion, rec.Declarada!.TipoLicencia);
     }
 
     [Fact]

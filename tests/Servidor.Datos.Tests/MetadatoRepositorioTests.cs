@@ -134,6 +134,60 @@ public class MetadatoRepositorioTests(BaseDeDatosFixture bd) : IClassFixture<Bas
         Assert.Equal("Ejemplo.Nuevo", (await Repo.BuscarAsync(nombre, "1.0.0"))!.PaqueteAlterno);
     }
 
+    [Fact]
+    public async Task Razones_mensaje_y_tipo_de_licencia_recibido_se_recuperan_desde_la_cache()
+    {
+        var nombre = Nuevo("Ejemplo.Explicado");
+        await Repo.GuardarAsync(Muestras.Metadato(nombre, "1.0.0", deprecado: true) with
+        {
+            Licencia = "https://example.org/l",
+            TipoLicencia = TipoLicencia.Url,
+            DeprecacionRazones = ["Legacy", "Other"],
+            DeprecacionMensaje = "Usa Ejemplo.Moderno.",
+            PaqueteAlterno = "Ejemplo.Moderno",
+        });
+
+        var leido = (await Repo.BuscarAsync(nombre, "1.0.0"))!;
+
+        Assert.Equal(["Legacy", "Other"], leido.DeprecacionRazones);
+        Assert.Equal("Usa Ejemplo.Moderno.", leido.DeprecacionMensaje);
+        Assert.Equal(TipoLicencia.Url, leido.TipoLicencia);
+    }
+
+    [Fact]
+    public async Task Sin_tipo_de_licencia_ni_razones_la_fila_los_deja_nulos_y_la_base_rechaza_un_tipo_inventado()
+    {
+        var nombre = Nuevo("Ejemplo.SinTipo");
+        await Repo.GuardarAsync(Muestras.Metadato(nombre, "1.0.0"));
+
+        var leido = (await Repo.BuscarAsync(nombre, "1.0.0"))!;
+
+        Assert.Null(leido.TipoLicencia);
+        Assert.Null(leido.DeprecacionRazones);
+        Assert.Null(leido.DeprecacionMensaje);
+        var ex = await Assert.ThrowsAsync<PostgresException>(() => bd.EjecutarAsync("UPDATE metadato_libreria SET tipo_licencia = 'inventado'"));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, ex.SqlState);
+    }
+
+    [Fact]
+    public async Task Una_renovacion_actualiza_razones_mensaje_y_tipo()
+    {
+        var nombre = Nuevo("Ejemplo.RenovadoMotivos");
+        await Repo.GuardarAsync(Muestras.Metadato(nombre, "1.0.0", Muestras.Base) with { TipoLicencia = TipoLicencia.Expresion });
+
+        await Repo.GuardarAsync(Muestras.Metadato(nombre, "1.0.0", Muestras.Base.AddHours(1), deprecado: true) with
+        {
+            TipoLicencia = TipoLicencia.Archivo,
+            DeprecacionRazones = ["Legacy"],
+            DeprecacionMensaje = "Obsoleto.",
+        });
+
+        var leido = (await Repo.BuscarAsync(nombre, "1.0.0"))!;
+        Assert.Equal(TipoLicencia.Archivo, leido.TipoLicencia);
+        Assert.Equal(["Legacy"], leido.DeprecacionRazones);
+        Assert.Equal("Obsoleto.", leido.DeprecacionMensaje);
+    }
+
     // ---------- upsert concurrente ----------
 
     [Fact]

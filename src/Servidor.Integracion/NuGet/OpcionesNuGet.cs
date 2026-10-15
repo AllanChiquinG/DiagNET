@@ -52,6 +52,7 @@ public sealed class OpcionesNuGet
     /// 100: la referencia oficial del .nuspec (learn.microsoft.com/nuget/reference/nuspec, consultada el 15/10/2026) dice «When uploading a package to nuget.org,
     /// the id field is limited to 100 characters». El máximo de 128 de esa página aplica al atributo id de una DEPENDENCIA (puede apuntar a otras fuentes),
     /// no a un paquete de nuget.org. Un identificador mayor no puede existir en nuget.org y se informa como no encontrado.
+    /// Es un límite EXTERNO de consulta: no sustituye a los de lectura (200, E2) ni de almacenamiento (200, E3), que no cambian.
     /// </summary>
     public int MaxLongitudIdentificador { get; set; } = 100;
 

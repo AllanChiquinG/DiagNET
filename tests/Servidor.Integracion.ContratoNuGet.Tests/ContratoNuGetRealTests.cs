@@ -77,6 +77,7 @@ public class ContratoNuGetRealTests : IDisposable
         var dep = r.Valor!.Declarada!.Deprecacion;
         Assert.NotNull(dep);
         Assert.NotEmpty(dep.Razones);
+        Assert.False(string.IsNullOrWhiteSpace(dep.Mensaje)); // el mensaje real de la deprecación llega y se conserva
         if (dep.PaqueteAlterno is not null)
             Assert.True(new ValidadorDirecciones(new OpcionesNuGet()).EsIdentificadorValido(dep.PaqueteAlterno), dep.PaqueteAlterno);
     }
@@ -88,7 +89,8 @@ public class ContratoNuGetRealTests : IDisposable
 
         var d = r.Valor!.Declarada!;
         Assert.NotNull(d.Licencia);
-        Assert.Equal(d.Licencia.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? TipoLicencia.Url : TipoLicencia.Expresion, d.TipoLicencia);
+        Assert.NotNull(d.TipoLicencia); // el tipo lo entrega NuGet (licenseExpression o licenseUrl); no se deduce del texto
+        Assert.Equal(TipoLicencia.Url, d.TipoLicencia); // este paquete declara licenseUrl
     }
 
     [Fact]
