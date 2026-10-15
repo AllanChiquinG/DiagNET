@@ -1,0 +1,166 @@
+{
+  "id": "0b6f6c3e-4b7e-4f0e-9a52-3f1d2a9c7e10",
+  "nombreArchivo": "MiProyecto.csproj",
+  "frameworksDeclarados": ["net8.0"],
+  "frameworksEvaluados": ["net8.0"],
+  "fechaAnalisis": "2026-10-14T18:30:00+00:00",
+  "estado": "completo",
+  "resumen": { "total": 4, "actualizadas": 1, "desactualizadas": 1, "incompatibles": 1, "sinSoporteActivo": 1, "noDeterminadas": 0 },
+  "dependencias": [
+    {
+      "nombre": "Ejemplo.Registro",
+      "versionDeclarada": "3.2.1",
+      "tipoVersion": "exacta",
+      "condicion": null,
+      "advertencias": [],
+      "diagnostico": {
+        "estado": "actualizada",
+        "resumen": "Usas la última versión estable compatible con net8.0.",
+        "hallazgos": [
+          { "regla": "actualizacion", "codigo": "version_al_dia", "gravedad": "informativo",
+            "mensaje": "No existe una versión estable posterior compatible con net8.0.",
+            "evidencia": [ { "clave": "versionDeclarada", "valor": "3.2.1" }, { "clave": "ultimaEstableCompatible", "valor": "3.2.1" } ] }
+        ],
+        "evaluacionPorTfm": [ { "tfm": "net8.0", "estado": "actualizada" } ],
+        "origen": "nuget",
+        "fechaConsulta": "2026-10-14T18:30:02+00:00",
+        "indicadores": {
+          "fechaPublicacionDeclarada": { "disponibilidad": "conocido", "valor": "2026-08-20T00:00:00+00:00" },
+          "ultimaVersionEstable": { "disponibilidad": "conocido", "valor": "3.2.1" },
+          "ultimaVersionEstableCompatible": { "disponibilidad": "conocido", "valor": "3.2.1" },
+          "seleccionVersionesCompleta": true,
+          "mesesDesdeUltimaPublicacion": { "disponibilidad": "conocido", "valor": 2 },
+          "descargas": { "disponibilidad": "conocido", "valor": 1250000 },
+          "licencia": { "disponibilidad": "conocido", "valor": { "tipo": "expresion", "valor": "MIT" } },
+          "deprecado": { "disponibilidad": "conocido", "valor": false },
+          "deprecacion": null,
+          "compatibilidadPorTfm": [ { "tfm": "net8.0", "resultado": "compatible", "base": "inferida_dependency_groups", "detalle": "Declara un grupo de dependencias para net8.0." } ],
+          "aot": { "disponibilidad": "no_evaluado", "nota": "DiagNET no evalúa AOT en esta versión." }
+        }
+      },
+      "recomendaciones": []
+    },
+    {
+      "nombre": "Ejemplo.Cliente",
+      "versionDeclarada": "1.0.0",
+      "tipoVersion": "exacta",
+      "condicion": null,
+      "advertencias": [],
+      "diagnostico": {
+        "estado": "desactualizada",
+        "resumen": "Existe una versión estable posterior compatible con net8.0 (2.1.0).",
+        "hallazgos": [
+          { "regla": "actualizacion", "codigo": "version_posterior_compatible", "gravedad": "aviso",
+            "mensaje": "Hay una versión estable más reciente (2.1.0) que declara compatibilidad con net8.0.",
+            "evidencia": [ { "clave": "versionDeclarada", "valor": "1.0.0" }, { "clave": "ultimaEstableCompatible", "valor": "2.1.0" } ] }
+        ],
+        "evaluacionPorTfm": [ { "tfm": "net8.0", "estado": "desactualizada" } ],
+        "origen": "cache_vigente",
+        "fechaConsulta": "2026-10-14T09:12:40+00:00",
+        "indicadores": {
+          "fechaPublicacionDeclarada": { "disponibilidad": "conocido", "valor": "2024-03-01T00:00:00+00:00" },
+          "ultimaVersionEstable": { "disponibilidad": "conocido", "valor": "2.1.0" },
+          "ultimaVersionEstableCompatible": { "disponibilidad": "conocido", "valor": "2.1.0" },
+          "seleccionVersionesCompleta": true,
+          "mesesDesdeUltimaPublicacion": { "disponibilidad": "conocido", "valor": 1 },
+          "descargas": { "disponibilidad": "conocido", "valor": 480000 },
+          "licencia": { "disponibilidad": "conocido", "valor": { "tipo": "expresion", "valor": "Apache-2.0" } },
+          "deprecado": { "disponibilidad": "conocido", "valor": false },
+          "deprecacion": null,
+          "compatibilidadPorTfm": [ { "tfm": "net8.0", "resultado": "compatible", "base": "inferida_dependency_groups" } ],
+          "aot": { "disponibilidad": "no_evaluado", "nota": "DiagNET no evalúa AOT en esta versión." }
+        }
+      },
+      "recomendaciones": [
+        {
+          "tipo": "actualizar_version",
+          "paquete": "Ejemplo.Cliente",
+          "versionSugerida": "2.1.0",
+          "justificacion": "Es la última versión estable que declara compatibilidad con net8.0.",
+          "evidencia": [ { "clave": "ultimaEstableCompatible", "valor": "2.1.0" } ],
+          "limitaciones": [ "Es un cambio de versión mayor: puede incluir cambios incompatibles. Revisa las notas de la versión antes de actualizar." ],
+          "posiblesCambiosDeCodigo": true
+        }
+      ]
+    },
+    {
+      "nombre": "Ejemplo.Antiguo",
+      "versionDeclarada": "0.9.0",
+      "tipoVersion": "exacta",
+      "condicion": null,
+      "advertencias": [],
+      "diagnostico": {
+        "estado": "sin_soporte_activo",
+        "resumen": "NuGet marca este paquete como obsoleto y propone Ejemplo.Moderno. La deprecación es una señal publicada; no prueba por sí sola que no reciba correcciones.",
+        "hallazgos": [
+          { "regla": "soporte_activo", "codigo": "paquete_deprecado", "gravedad": "grave",
+            "mensaje": "El autor marcó el paquete como obsoleto en NuGet.",
+            "evidencia": [ { "clave": "razones", "valor": "Legacy" }, { "clave": "paqueteAlterno", "valor": "Ejemplo.Moderno" } ] }
+        ],
+        "evaluacionPorTfm": [ { "tfm": "net8.0", "estado": "sin_soporte_activo" } ],
+        "origen": "nuget",
+        "fechaConsulta": "2026-10-14T18:30:03+00:00",
+        "indicadores": {
+          "fechaPublicacionDeclarada": { "disponibilidad": "conocido", "valor": "2021-05-10T00:00:00+00:00" },
+          "ultimaVersionEstable": { "disponibilidad": "conocido", "valor": "0.9.0" },
+          "ultimaVersionEstableCompatible": { "disponibilidad": "conocido", "valor": "0.9.0" },
+          "seleccionVersionesCompleta": true,
+          "mesesDesdeUltimaPublicacion": { "disponibilidad": "conocido", "valor": 65 },
+          "descargas": { "disponibilidad": "conocido", "valor": 92000 },
+          "licencia": { "disponibilidad": "conocido", "valor": { "tipo": "expresion", "valor": "MIT" } },
+          "deprecado": { "disponibilidad": "conocido", "valor": true },
+          "deprecacion": { "razones": ["Legacy"], "mensaje": "Reemplazado por Ejemplo.Moderno.", "paqueteAlterno": "Ejemplo.Moderno", "rangoVersionAlterno": "[1.0.0, )" },
+          "compatibilidadPorTfm": [ { "tfm": "net8.0", "resultado": "compatible", "base": "inferida_dependency_groups" } ],
+          "aot": { "disponibilidad": "no_evaluado", "nota": "DiagNET no evalúa AOT en esta versión." }
+        }
+      },
+      "recomendaciones": [
+        {
+          "tipo": "alternativa",
+          "paquete": "Ejemplo.Moderno",
+          "versionSugerida": "1.4.0",
+          "justificacion": "El propio autor del paquete indica Ejemplo.Moderno como reemplazo y su versión 1.4.0 declara compatibilidad con net8.0.",
+          "evidencia": [ { "clave": "paqueteAlterno", "valor": "Ejemplo.Moderno" }, { "clave": "rangoVersionAlterno", "valor": "[1.0.0, )" } ],
+          "limitaciones": [ "La migración puede requerir cambios de código; DiagNET no los ha verificado." ],
+          "posiblesCambiosDeCodigo": true
+        }
+      ]
+    },
+    {
+      "nombre": "Ejemplo.SoloNet10",
+      "versionDeclarada": "5.0.0",
+      "tipoVersion": "exacta",
+      "condicion": null,
+      "advertencias": [],
+      "diagnostico": {
+        "estado": "incompatible",
+        "resumen": "La versión declarada solo declara dependencias para net10.0; no declara net8.0 (inferido a partir de sus grupos de dependencias).",
+        "hallazgos": [
+          { "regla": "framework", "codigo": "sin_grupo_para_tfm", "gravedad": "grave",
+            "mensaje": "Ninguno de los grupos de dependencias del paquete corresponde a net8.0.",
+            "evidencia": [ { "clave": "gruposDeclarados", "valor": "net10.0" }, { "clave": "tfmProyecto", "valor": "net8.0" } ] }
+        ],
+        "evaluacionPorTfm": [ { "tfm": "net8.0", "estado": "incompatible" } ],
+        "origen": "nuget",
+        "fechaConsulta": "2026-10-14T18:30:04+00:00",
+        "indicadores": {
+          "fechaPublicacionDeclarada": { "disponibilidad": "conocido", "valor": "2026-06-01T00:00:00+00:00" },
+          "ultimaVersionEstable": { "disponibilidad": "conocido", "valor": "5.0.0" },
+          "ultimaVersionEstableCompatible": { "disponibilidad": "no_determinado", "nota": "Ninguna versión estable declara net8.0." },
+          "seleccionVersionesCompleta": true,
+          "mesesDesdeUltimaPublicacion": { "disponibilidad": "conocido", "valor": 4 },
+          "descargas": { "disponibilidad": "no_determinado", "nota": "NuGet no devolvió el dato." },
+          "licencia": { "disponibilidad": "no_determinado", "nota": "El paquete no declara licencia." },
+          "deprecado": { "disponibilidad": "conocido", "valor": false },
+          "deprecacion": null,
+          "compatibilidadPorTfm": [ { "tfm": "net8.0", "resultado": "incompatible", "base": "inferida_dependency_groups", "detalle": "Solo existe un grupo para net10.0." } ],
+          "aot": { "disponibilidad": "no_evaluado", "nota": "DiagNET no evalúa AOT en esta versión." }
+        }
+      },
+      "recomendaciones": []
+    }
+  ],
+  "advertencias": [],
+  "versionReglas": "0.1-propuesta",
+  "retencionDias": 90
+}

@@ -1,0 +1,55 @@
+{
+  "id": "c41e9b77-6d0a-45a1-a3f4-7b2d9e8c1f02",
+  "nombreArchivo": "Biblioteca.Comun.csproj",
+  "frameworksDeclarados": ["net8.0", "net10.0", "net48"],
+  "frameworksEvaluados": ["net8.0", "net10.0"],
+  "fechaAnalisis": "2026-10-14T19:40:00+00:00",
+  "estado": "completo",
+  "resumen": { "total": 1, "actualizadas": 0, "desactualizadas": 0, "incompatibles": 1, "sinSoporteActivo": 0, "noDeterminadas": 0 },
+  "dependencias": [
+    {
+      "nombre": "Ejemplo.SoloNet10",
+      "versionDeclarada": "5.0.0",
+      "tipoVersion": "exacta",
+      "condicion": null,
+      "advertencias": [],
+      "diagnostico": {
+        "estado": "incompatible",
+        "resumen": "Compatible con net10.0 pero no con net8.0. El proyecto compila para ambos, por eso el resultado global es incompatible.",
+        "hallazgos": [
+          { "regla": "framework", "codigo": "sin_grupo_para_tfm", "gravedad": "grave",
+            "mensaje": "Ningún grupo de dependencias del paquete corresponde a net8.0.",
+            "evidencia": [ { "clave": "tfmAfectado", "valor": "net8.0" } ] }
+        ],
+        "evaluacionPorTfm": [
+          { "tfm": "net8.0", "estado": "incompatible" },
+          { "tfm": "net10.0", "estado": "actualizada" }
+        ],
+        "origen": "nuget",
+        "fechaConsulta": "2026-10-14T19:40:02+00:00",
+        "indicadores": {
+          "fechaPublicacionDeclarada": { "disponibilidad": "conocido", "valor": "2026-06-01T00:00:00+00:00" },
+          "ultimaVersionEstable": { "disponibilidad": "conocido", "valor": "5.0.0" },
+          "ultimaVersionEstableCompatible": { "disponibilidad": "conocido", "valor": "5.0.0", "nota": "Solo para net10.0." },
+          "seleccionVersionesCompleta": true,
+          "mesesDesdeUltimaPublicacion": { "disponibilidad": "conocido", "valor": 4 },
+          "descargas": { "disponibilidad": "conocido", "valor": 0 },
+          "licencia": { "disponibilidad": "no_determinado", "nota": "El paquete no declara licencia." },
+          "deprecado": { "disponibilidad": "conocido", "valor": false },
+          "deprecacion": null,
+          "compatibilidadPorTfm": [
+            { "tfm": "net8.0", "resultado": "incompatible", "base": "inferida_dependency_groups" },
+            { "tfm": "net10.0", "resultado": "compatible", "base": "inferida_dependency_groups" }
+          ],
+          "aot": { "disponibilidad": "no_evaluado", "nota": "DiagNET no evalúa AOT en esta versión." }
+        }
+      },
+      "recomendaciones": []
+    }
+  ],
+  "advertencias": [
+    { "codigo": "framework_fuera_de_alcance_omitido", "mensaje": "net48 está fuera del alcance de DiagNET (.NET 8 y .NET 10); no se evaluó.", "dependencia": null }
+  ],
+  "versionReglas": "0.1-propuesta",
+  "retencionDias": 90
+}

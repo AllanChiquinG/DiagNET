@@ -8,6 +8,7 @@
     <Project Path="src/Servidor.Negocio/Servidor.Negocio.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Compartido.Contratos.Tests/Compartido.Contratos.Tests.csproj" />
     <Project Path="tests/Servidor.Api.Tests/Servidor.Api.Tests.csproj" />
     <Project Path="tests/Servidor.Negocio.Tests/Servidor.Negocio.Tests.csproj" />
   </Folder>

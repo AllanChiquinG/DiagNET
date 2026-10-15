@@ -1,0 +1,15 @@
+{
+  "id": "a8f3d0c2-2c55-4e0e-b6a1-0c4f5f9a1d33",
+  "nombreArchivo": "Vacio.csproj",
+  "frameworksDeclarados": ["net8.0"],
+  "frameworksEvaluados": ["net8.0"],
+  "fechaAnalisis": "2026-10-14T19:20:00+00:00",
+  "estado": "completo",
+  "resumen": { "total": 0, "actualizadas": 0, "desactualizadas": 0, "incompatibles": 0, "sinSoporteActivo": 0, "noDeterminadas": 0 },
+  "dependencias": [],
+  "advertencias": [
+    { "codigo": "sin_paquetes", "mensaje": "El proyecto no declara ningún PackageReference; no hay librerías que diagnosticar.", "dependencia": null }
+  ],
+  "versionReglas": "0.1-propuesta",
+  "retencionDias": 90
+}

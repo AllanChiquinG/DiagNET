@@ -1,0 +1,17 @@
+{
+  "nombreArchivo": "MiProyecto.csproj",
+  "frameworks": [
+    { "valor": "net8.0", "enAlcance": true },
+    { "valor": "net10.0", "enAlcance": true }
+  ],
+  "dependencias": [
+    { "nombre": "Ejemplo.Registro", "versionDeclarada": "3.2.1", "tipoVersion": "exacta", "condicion": null, "advertencias": [] },
+    { "nombre": "Ejemplo.Cliente", "versionDeclarada": "[1.0.0,2.0.0)", "tipoVersion": "rango", "condicion": null,
+      "advertencias": [ { "codigo": "version_no_resuelta", "mensaje": "La versión es un rango; DiagNET no la resuelve a una versión concreta.", "dependencia": "Ejemplo.Cliente" } ] },
+    { "nombre": "Ejemplo.Variable", "versionDeclarada": "$(VersionEjemplo)", "tipoVersion": "propiedad", "condicion": null,
+      "advertencias": [ { "codigo": "version_no_resuelta", "mensaje": "La versión depende de una propiedad que no se resuelve desde un solo .csproj.", "dependencia": "Ejemplo.Variable" } ] },
+    { "nombre": "Ejemplo.Condicional", "versionDeclarada": "1.2.0", "tipoVersion": "exacta", "condicion": "'$(TargetFramework)' == 'net8.0'",
+      "advertencias": [ { "codigo": "condicion_no_evaluada", "mensaje": "La referencia tiene una condición que DiagNET no evalúa; se muestra tal cual.", "dependencia": "Ejemplo.Condicional" } ] }
+  ],
+  "advertencias": []
+}

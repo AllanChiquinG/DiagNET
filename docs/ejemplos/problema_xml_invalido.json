@@ -1,0 +1,9 @@
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "El archivo no es un XML válido",
+  "status": 400,
+  "detail": "El contenido no se pudo leer como XML. Comprueba que sea un archivo .csproj completo.",
+  "instance": "/api/analisis",
+  "codigo": "xml_invalido",
+  "referencia": "0HNF3K7Q2V1AB:00000001"
+}

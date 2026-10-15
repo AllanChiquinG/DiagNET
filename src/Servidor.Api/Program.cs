@@ -1,8 +1,13 @@
+using Compartido.Contratos;
 using Servidor.Api.Endpoints;
+using Servidor.Api.Errores;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddManejoErrores();
 
 var app = builder.Build();
+
+app.UseManejoErrores();
 
 if (app.Environment.IsDevelopment())
 {
@@ -16,9 +21,7 @@ app.UseStaticFiles();
 app.MapGroup("/api").MapSalud();
 
 // Una ruta /api desconocida devuelve 404 y nunca index.html (no hay fallback SPA bajo /api).
-app.Map("/api/{**resto}", () => Results.Problem(
-    title: "Recurso no encontrado",
-    statusCode: StatusCodes.Status404NotFound));
+app.Map("/api/{**resto}", () => ManejoErrores.Problema(CodigosError.RecursoNoEncontrado));
 
 app.MapFallbackToFile("index.html");
 

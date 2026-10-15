@@ -1,0 +1,70 @@
+{
+  "id": "5d1c7a42-91a6-4b2b-8f0c-6e2f0c3b7a55",
+  "nombreArchivo": "Servicio.Api.csproj",
+  "frameworksDeclarados": ["net10.0"],
+  "frameworksEvaluados": ["net10.0"],
+  "fechaAnalisis": "2026-10-14T19:05:00+00:00",
+  "estado": "parcial",
+  "resumen": { "total": 2, "actualizadas": 1, "desactualizadas": 0, "incompatibles": 0, "sinSoporteActivo": 0, "noDeterminadas": 1 },
+  "dependencias": [
+    {
+      "nombre": "Ejemplo.Registro",
+      "versionDeclarada": "3.2.1",
+      "tipoVersion": "exacta",
+      "condicion": null,
+      "advertencias": [ { "codigo": "cache_expirada", "mensaje": "NuGet no respondió; se usó una copia guardada el 2026-10-12.", "dependencia": "Ejemplo.Registro" } ],
+      "diagnostico": {
+        "estado": "actualizada",
+        "resumen": "Según la copia guardada el 12 de octubre, no existía una versión estable posterior compatible con net10.0.",
+        "hallazgos": [
+          { "regla": "actualizacion", "codigo": "version_al_dia", "gravedad": "informativo",
+            "mensaje": "Sin versión estable posterior compatible según los datos disponibles.",
+            "evidencia": [ { "clave": "ultimaEstableCompatible", "valor": "3.2.1" } ] }
+        ],
+        "evaluacionPorTfm": [ { "tfm": "net10.0", "estado": "actualizada" } ],
+        "origen": "cache_expirada",
+        "fechaConsulta": "2026-10-12T08:00:00+00:00",
+        "indicadores": {
+          "fechaPublicacionDeclarada": { "disponibilidad": "conocido", "valor": "2026-08-20T00:00:00+00:00" },
+          "ultimaVersionEstable": { "disponibilidad": "conocido", "valor": "3.2.1" },
+          "ultimaVersionEstableCompatible": { "disponibilidad": "conocido", "valor": "3.2.1" },
+          "seleccionVersionesCompleta": true,
+          "mesesDesdeUltimaPublicacion": { "disponibilidad": "conocido", "valor": 2 },
+          "descargas": { "disponibilidad": "conocido", "valor": 1250000 },
+          "licencia": { "disponibilidad": "conocido", "valor": { "tipo": "expresion", "valor": "MIT" } },
+          "deprecado": { "disponibilidad": "conocido", "valor": false },
+          "deprecacion": null,
+          "compatibilidadPorTfm": [ { "tfm": "net10.0", "resultado": "compatible", "base": "inferida_dependency_groups" } ],
+          "aot": { "disponibilidad": "no_evaluado", "nota": "DiagNET no evalúa AOT en esta versión." }
+        }
+      },
+      "recomendaciones": []
+    },
+    {
+      "nombre": "Ejemplo.Desconocido",
+      "versionDeclarada": "2.0.0",
+      "tipoVersion": "exacta",
+      "condicion": null,
+      "advertencias": [ { "codigo": "sin_datos", "mensaje": "NuGet no respondió y no hay copia guardada.", "dependencia": "Ejemplo.Desconocido" } ],
+      "diagnostico": {
+        "estado": "no_determinada",
+        "resumen": "No se pudo consultar NuGet y no existe una copia guardada, por lo que no es posible clasificar este paquete. No es un error de tu proyecto.",
+        "hallazgos": [
+          { "regla": "actualizacion", "codigo": "sin_evidencia", "gravedad": "aviso",
+            "mensaje": "Faltan los datos de NuGet necesarios para evaluar la versión.", "evidencia": [] }
+        ],
+        "evaluacionPorTfm": [ { "tfm": "net10.0", "estado": "no_determinada" } ],
+        "origen": "no_determinado",
+        "fechaConsulta": null,
+        "indicadores": null
+      },
+      "recomendaciones": []
+    }
+  ],
+  "advertencias": [
+    { "codigo": "analisis_parcial", "mensaje": "1 de 2 dependencias no pudo determinarse. Puedes volver a analizar el archivo más tarde.", "dependencia": null },
+    { "codigo": "presupuesto_agotado", "mensaje": "Se alcanzó el tiempo máximo de análisis (120 s).", "dependencia": null }
+  ],
+  "versionReglas": "0.1-propuesta",
+  "retencionDias": 90
+}

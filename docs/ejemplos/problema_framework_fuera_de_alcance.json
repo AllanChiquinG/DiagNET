@@ -1,0 +1,10 @@
+{
+  "type": "https://tools.ietf.org/html/rfc4918#section-11.2",
+  "title": "El proyecto no usa .NET 8 ni .NET 10",
+  "status": 422,
+  "detail": "DiagNET analiza proyectos .NET 8 y .NET 10. Frameworks declarados: net6.0, netstandard2.0.",
+  "instance": "/api/analisis",
+  "codigo": "framework_fuera_de_alcance",
+  "referencia": "0HNF3K7Q2V1AB:00000002",
+  "errores": [ { "campo": "archivo", "mensaje": "Ningún TargetFramework está dentro del alcance." } ]
+}

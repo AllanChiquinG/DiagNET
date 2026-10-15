@@ -1,0 +1,9 @@
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+  "title": "El análisis no existe o ya no está disponible",
+  "status": 404,
+  "detail": "Puede haber superado el período de conservación. Sube el archivo de nuevo para generar otro análisis.",
+  "instance": "/api/analisis/0b6f6c3e-4b7e-4f0e-9a52-3f1d2a9c7e10",
+  "codigo": "analisis_no_encontrado",
+  "referencia": "0HNF3K7Q2V1AB:00000003"
+}

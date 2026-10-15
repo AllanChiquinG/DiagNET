@@ -1,0 +1,11 @@
+{
+  "elementos": [
+    { "id": "5d1c7a42-91a6-4b2b-8f0c-6e2f0c3b7a55", "nombreArchivo": "Servicio.Api.csproj", "frameworksDeclarados": ["net10.0"],
+      "fechaAnalisis": "2026-10-14T19:05:00+00:00", "totalDependencias": 2, "estado": "parcial" },
+    { "id": "0b6f6c3e-4b7e-4f0e-9a52-3f1d2a9c7e10", "nombreArchivo": "MiProyecto.csproj", "frameworksDeclarados": ["net8.0"],
+      "fechaAnalisis": "2026-10-14T18:30:00+00:00", "totalDependencias": 4, "estado": "completo" }
+  ],
+  "pagina": 1,
+  "tamanoPagina": 20,
+  "total": 2
+}
