@@ -2,10 +2,18 @@ using Compartido.Contratos;
 using Microsoft.AspNetCore.Http.Features;
 using Servidor.Api.Endpoints;
 using Servidor.Api.Errores;
+using Servidor.Datos;
 using Servidor.Negocio.Lectura;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Credenciales y cadenas de conexión reales: appsettings.Local.json (ignorado por Git) o variables de entorno. Nunca en el repositorio.
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 builder.Services.AddManejoErrores();
+
+// Persistencia (E3): se registra si hay cadena de conexión. Las migraciones NO se aplican al arrancar (paso controlado: dotnet ef database update).
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString(RegistroDatos.NombreCadenaConexion)))
+    builder.Services.AddDatos(builder.Configuration);
 
 // Límites de entrada (DEC-09 y plan E2): archivo 1 MB, cuerpo HTTP 2 MB, 100 dependencias distintas.
 var lectura = new OpcionesLectura
