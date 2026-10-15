@@ -38,6 +38,9 @@ public static class CodigosLectura
     public const string ArchivoExcedeTamano = "archivo_excede_tamano";
     public const string XmlInvalido = "xml_invalido";
     public const string ProyectoInvalido = "proyecto_invalido";
+    public const string NombreArchivoDemasiadoLargo = "nombre_archivo_demasiado_largo";
+    public const string NombrePaqueteDemasiadoLargo = "nombre_paquete_demasiado_largo";
+    public const string VersionDemasiadoLarga = "version_demasiado_larga";
     public const string FrameworkFueraDeAlcance = "framework_fuera_de_alcance";
     public const string LimiteDependenciasExcedido = "limite_dependencias_excedido";
 }

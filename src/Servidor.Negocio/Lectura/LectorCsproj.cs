@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
+using Servidor.Negocio.Dominio;
 
 namespace Servidor.Negocio.Lectura;
 
@@ -175,7 +176,16 @@ public sealed partial class LectorCsproj(OpcionesLectura opciones) : ILectorProy
                 continue;
             }
 
+            if (LimitesDatos.Excede(nombre, LimitesDatos.NombrePaquete))
+                throw new ArchivoInvalidoException(CodigosLectura.NombrePaqueteDemasiadoLargo,
+                    $"El identificador de un paquete («{LimitesDatos.Extracto(nombre)}») tiene {LimitesDatos.Longitud(nombre)} caracteres; " +
+                    $"el máximo permitido es {LimitesDatos.NombrePaquete}. Revisa el archivo.");
+
             var version = ValorDe(e, "Version") ?? ValorDe(e, "VersionOverride");
+            if (LimitesDatos.Excede(version, LimitesDatos.Version))
+                throw new ArchivoInvalidoException(CodigosLectura.VersionDemasiadoLarga,
+                    $"La versión declarada de «{LimitesDatos.Extracto(nombre)}» tiene {LimitesDatos.Longitud(version)} caracteres; " +
+                    $"el máximo permitido es {LimitesDatos.Version}. Revisa el archivo.");
             referencias.Add(new Referencia(nombre, version, CondicionDe(e)));
         }
 

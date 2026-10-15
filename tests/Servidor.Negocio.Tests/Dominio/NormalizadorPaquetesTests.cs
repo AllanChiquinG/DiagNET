@@ -34,6 +34,13 @@ public class NormalizadorPaquetesTests
     public void Lo_que_no_es_una_version_reconocible_se_devuelve_recortado_y_en_minusculas_sin_fallar(string entrada, string esperado) =>
         Assert.Equal(esperado, NormalizadorPaquetes.VersionNormalizada(entrada));
 
+    [Theory]
+    [InlineData("99999999999999999999999999.1", "99999999999999999999999999.1.0")]
+    [InlineData("0000000000000000000000000001.0.0", "1.0.0")]
+    [InlineData("1.2.3.99999999999999999999", "1.2.3.99999999999999999999")]
+    public void Los_numeros_enormes_no_provocan_desbordamiento(string entrada, string esperado) =>
+        Assert.Equal(esperado, NormalizadorPaquetes.VersionNormalizada(entrada));
+
     [Fact]
     public void Versiones_distintas_siguen_siendo_distintas()
     {

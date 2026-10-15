@@ -235,6 +235,53 @@ public class LecturaProyectoTests : IClassFixture<WebApplicationFactory<Program>
         Assert.DoesNotContain("secreto-del-usuario", texto);
     }
 
+    // ---------- longitudes con límite en la base de datos ----------
+
+    private static string XmlConPaquete(string nombre, string version = "1.0.0") =>
+        $"""<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup><ItemGroup><PackageReference Include="{nombre}" Version="{version}" /></ItemGroup></Project>""";
+
+    [Fact]
+    public async Task Un_nombre_de_paquete_de_201_caracteres_devuelve_422_antes_de_cualquier_consulta_o_guardado()
+    {
+        var respuesta = await Enviar(XmlConPaquete(new string('p', 201)));
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, respuesta.StatusCode);
+        var problema = await Problema(respuesta);
+        Assert.Equal(CodigosError.NombrePaqueteDemasiadoLargo, problema.Codigo);
+        Assert.Contains("201", problema.Detail);
+        Assert.Contains("200", problema.Detail);
+        Assert.DoesNotContain(new string('p', 201), problema.Detail);
+    }
+
+    [Fact]
+    public async Task Un_nombre_de_paquete_de_200_caracteres_se_acepta() =>
+        Assert.Equal(HttpStatusCode.OK, (await Enviar(XmlConPaquete(new string('p', 200)))).StatusCode);
+
+    [Fact]
+    public async Task Una_version_de_101_caracteres_devuelve_422_y_una_de_100_se_acepta()
+    {
+        var v100 = "1.0.0-" + new string('b', 94);
+        Assert.Equal(HttpStatusCode.OK, (await Enviar(XmlConPaquete("Ejemplo.Uno", v100))).StatusCode);
+
+        var respuesta = await Enviar(XmlConPaquete("Ejemplo.Uno", v100 + "b"));
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, respuesta.StatusCode);
+        var problema = await Problema(respuesta);
+        Assert.Equal(CodigosError.VersionDemasiadoLarga, problema.Codigo);
+        Assert.Contains("Ejemplo.Uno", problema.Detail);
+    }
+
+    [Fact]
+    public async Task Un_nombre_de_archivo_de_261_caracteres_devuelve_400_y_uno_de_260_se_acepta()
+    {
+        Assert.Equal(HttpStatusCode.OK, (await Enviar(Proyecto("net8.0"), new string('a', 253) + ".csproj")).StatusCode);
+
+        var respuesta = await Enviar(Proyecto("net8.0"), new string('a', 254) + ".csproj");
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+        Assert.Equal(CodigosError.NombreArchivoDemasiadoLargo, (await Problema(respuesta)).Codigo);
+    }
+
     // ---------- coherencia de la configuración ----------
 
     [Fact]

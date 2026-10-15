@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace Servidor.Negocio.Dominio;
@@ -25,10 +24,17 @@ public static partial class NormalizadorPaquetes
         var m = Version().Match(texto);
         if (!m.Success) return texto.ToLowerInvariant();
 
-        static long Num(Group g) => g.Success ? long.Parse(g.Value, CultureInfo.InvariantCulture) : 0;
+        // Los componentes se normalizan como texto (sin ceros a la izquierda) para no fallar con números enormes.
+        static string Num(Group g)
+        {
+            if (!g.Success) return "0";
+            var recortado = g.Value.TrimStart('0');
+            return recortado.Length == 0 ? "0" : recortado;
+        }
+
         var partes = $"{Num(m.Groups["m"])}.{Num(m.Groups["n"])}.{Num(m.Groups["p"])}";
         var revision = Num(m.Groups["r"]);
-        if (revision != 0) partes += $".{revision}";
+        if (revision != "0") partes += $".{revision}";
         return m.Groups["pre"].Success ? $"{partes}-{m.Groups["pre"].Value.ToLowerInvariant()}" : partes;
     }
 }

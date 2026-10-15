@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Servidor.Datos.Entidades;
+using Servidor.Negocio.Dominio;
 
 namespace Servidor.Datos.Configuraciones;
 
@@ -18,8 +19,8 @@ internal sealed class AnalisisConfiguracion : IEntityTypeConfiguration<AnalisisF
         });
         e.HasKey(x => x.Id).HasName("pk_analisis");
         e.Property(x => x.Id).HasColumnName("id").HasColumnType("uuid").HasDefaultValueSql("gen_random_uuid()").ValueGeneratedNever();
-        e.Property(x => x.NombreArchivo).HasColumnName("nombre_archivo").HasMaxLength(260).IsRequired();
-        e.Property(x => x.FrameworkObjetivo).HasColumnName("framework_objetivo").HasMaxLength(100).IsRequired()
+        e.Property(x => x.NombreArchivo).HasColumnName("nombre_archivo").HasMaxLength(LimitesDatos.NombreArchivo).IsRequired();
+        e.Property(x => x.FrameworkObjetivo).HasColumnName("framework_objetivo").HasMaxLength(LimitesDatos.FrameworkObjetivo).IsRequired()
             .HasComment("Frameworks declarados, por ejemplo net8.0 o net8.0;net10.0.");
         e.Property(x => x.FechaAnalisis).HasColumnName("fecha_analisis").HasColumnType("timestamptz").HasDefaultValueSql("now()");
         e.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(20).IsRequired()
@@ -32,7 +33,7 @@ internal sealed class AnalisisConfiguracion : IEntityTypeConfiguration<AnalisisF
             .HasComment("Frameworks efectivamente evaluados (los admitidos).");
         e.Property(x => x.Advertencias).HasColumnName("advertencias").HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb")
             .HasComment("Advertencias del análisis (lista JSON).");
-        e.Property(x => x.VersionReglas).HasColumnName("version_reglas").HasMaxLength(30).HasDefaultValue("").IsRequired()
+        e.Property(x => x.VersionReglas).HasColumnName("version_reglas").HasMaxLength(LimitesDatos.VersionReglas).HasDefaultValue("").IsRequired()
             .HasComment("Versión de las reglas de diagnóstico usadas; evita reinterpretar resultados antiguos.");
         e.HasIndex(x => x.FechaAnalisis).IsDescending().HasDatabaseName("ix_analisis_fecha");
     }
@@ -50,8 +51,8 @@ internal sealed class DependenciaConfiguracion : IEntityTypeConfiguration<Depend
         e.HasKey(x => x.Id).HasName("pk_dependencia");
         e.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         e.Property(x => x.AnalisisId).HasColumnName("analisis_id").HasColumnType("uuid");
-        e.Property(x => x.NombrePaquete).HasColumnName("nombre_paquete").HasMaxLength(200).IsRequired();
-        e.Property(x => x.VersionDeclarada).HasColumnName("version_declarada").HasMaxLength(100)
+        e.Property(x => x.NombrePaquete).HasColumnName("nombre_paquete").HasMaxLength(LimitesDatos.NombrePaquete).IsRequired();
+        e.Property(x => x.VersionDeclarada).HasColumnName("version_declarada").HasMaxLength(LimitesDatos.Version)
             .HasComment("NULL si la versión no se puede resolver desde el .csproj.");
         e.Property(x => x.TipoVersion).HasColumnName("tipo_version").HasMaxLength(20).HasDefaultValue("ausente").IsRequired()
             .HasComment("Forma de la versión declarada: exacta, rango, flotante, propiedad, ausente o invalida.");
@@ -74,11 +75,11 @@ internal sealed class MetadatoLibreriaConfiguracion : IEntityTypeConfiguration<M
         });
         e.HasKey(x => x.Id).HasName("pk_metadato_libreria");
         e.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
-        e.Property(x => x.NombrePaquete).HasColumnName("nombre_paquete").HasMaxLength(200).IsRequired();
-        e.Property(x => x.Version).HasColumnName("version").HasMaxLength(100).IsRequired();
+        e.Property(x => x.NombrePaquete).HasColumnName("nombre_paquete").HasMaxLength(LimitesDatos.NombrePaquete).IsRequired();
+        e.Property(x => x.Version).HasColumnName("version").HasMaxLength(LimitesDatos.Version).IsRequired();
         e.Property(x => x.FechaPublicacion).HasColumnName("fecha_publicacion").HasColumnType("timestamptz");
         e.Property(x => x.Descargas).HasColumnName("descargas");
-        e.Property(x => x.Licencia).HasColumnName("licencia").HasMaxLength(200);
+        e.Property(x => x.Licencia).HasColumnName("licencia").HasMaxLength(LimitesDatos.Licencia);
         e.Property(x => x.FrameworksObjetivo).HasColumnName("frameworks_objetivo").HasColumnType("jsonb");
         e.Property(x => x.CompatibleAot).HasColumnName("compatible_aot").HasComment("NULL = no determinado.");
         e.Property(x => x.Deprecado).HasColumnName("deprecado").HasComment("NULL = no determinado.");
@@ -104,7 +105,7 @@ internal sealed class DiagnosticoConfiguracion : IEntityTypeConfiguration<Diagno
         e.Property(x => x.DependenciaId).HasColumnName("dependencia_id");
         e.Property(x => x.MetadatoId).HasColumnName("metadato_id").HasComment("Fila de caché usada, solo para trazabilidad.");
         e.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(30).IsRequired();
-        e.Property(x => x.UltimaVersion).HasColumnName("ultima_version").HasMaxLength(100);
+        e.Property(x => x.UltimaVersion).HasColumnName("ultima_version").HasMaxLength(LimitesDatos.Version);
         e.Property(x => x.Indicadores).HasColumnName("indicadores").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb")
             .HasComment("Copia de los indicadores usados: el resultado no cambia si la caché se renueva.");
         e.Property(x => x.Motivos).HasColumnName("motivos").HasColumnType("text").IsRequired();
@@ -138,8 +139,8 @@ internal sealed class RecomendacionConfiguracion : IEntityTypeConfiguration<Reco
         e.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         e.Property(x => x.DiagnosticoId).HasColumnName("diagnostico_id");
         e.Property(x => x.Tipo).HasColumnName("tipo").HasMaxLength(30).IsRequired();
-        e.Property(x => x.PaqueteAlternativo).HasColumnName("paquete_alternativo").HasMaxLength(200).IsRequired();
-        e.Property(x => x.VersionSugerida).HasColumnName("version_sugerida").HasMaxLength(100);
+        e.Property(x => x.PaqueteAlternativo).HasColumnName("paquete_alternativo").HasMaxLength(LimitesDatos.NombrePaquete).IsRequired();
+        e.Property(x => x.VersionSugerida).HasColumnName("version_sugerida").HasMaxLength(LimitesDatos.Version);
         e.Property(x => x.Justificacion).HasColumnName("justificacion").HasColumnType("text").IsRequired();
         e.Property(x => x.Evidencia).HasColumnName("evidencia").HasColumnType("jsonb").HasDefaultValueSql("'[]'::jsonb")
             .HasComment("Datos que respaldan la recomendación (lista JSON).");
@@ -160,8 +161,8 @@ internal sealed class SeleccionPaqueteConfiguracion : IEntityTypeConfiguration<S
             "Caché de la selección de versiones por paquete (DEC-11): última estable y última compatible por TFM, con vigencia."));
         e.HasKey(x => x.Id).HasName("pk_seleccion_paquete");
         e.Property(x => x.Id).HasColumnName("id").UseIdentityByDefaultColumn();
-        e.Property(x => x.NombrePaquete).HasColumnName("nombre_paquete").HasMaxLength(200).IsRequired();
-        e.Property(x => x.UltimaVersionEstable).HasColumnName("ultima_version_estable").HasMaxLength(100)
+        e.Property(x => x.NombrePaquete).HasColumnName("nombre_paquete").HasMaxLength(LimitesDatos.NombrePaquete).IsRequired();
+        e.Property(x => x.UltimaVersionEstable).HasColumnName("ultima_version_estable").HasMaxLength(LimitesDatos.Version)
             .HasComment("NULL si no se determinó.");
         e.Property(x => x.UltimaCompatiblePorTfm).HasColumnName("ultima_compatible_por_tfm").HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb")
             .HasComment("Objeto JSON: TFM → última versión estable compatible.");

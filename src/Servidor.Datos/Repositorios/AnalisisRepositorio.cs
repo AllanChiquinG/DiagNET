@@ -10,6 +10,7 @@ public sealed class AnalisisRepositorio(IDbContextFactory<AppDbContext> fabrica)
     public async Task GuardarAsync(Analisis analisis, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(analisis);
+        ValidadorLimites.Validar(analisis); // antes de abrir contexto o transacción: error claro y nada que deshacer
         var fila = MapeadorAnalisis.AFila(analisis);
 
         await using var db = await fabrica.CreateDbContextAsync(ct);

@@ -20,7 +20,10 @@ public sealed class MetadatoRepositorio(IDbContextFactory<AppDbContext> fabrica)
     public async Task GuardarAsync(MetadatoLibreria m, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(m);
+        ValidadorLimites.Validar(m);
         var version = NormalizadorPaquetes.VersionNormalizada(m.Version);
+        // La normalización puede alargar la versión (p. ej. «1» pasa a «1.0.0»): el límite se comprueba sobre lo que realmente se guarda.
+        ValidadorLimites.Exigir(version, "metadato_libreria.version (normalizada)", LimitesDatos.Version);
         var frameworks = m.FrameworksObjetivo is null ? null : Serializacion.AJson(m.FrameworksObjetivo);
         var publicacion = m.FechaPublicacion?.ToUniversalTime();
         var consulta = m.FechaConsulta.ToUniversalTime();
@@ -72,6 +75,7 @@ public sealed class MetadatoRepositorio(IDbContextFactory<AppDbContext> fabrica)
     public async Task GuardarSeleccionAsync(SeleccionPaquete s, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(s);
+        ValidadorLimites.Validar(s);
         var compatibles = Serializacion.AJson(s.UltimaCompatiblePorTfm);
         var consulta = s.FechaConsulta.ToUniversalTime();
         await using var db = await fabrica.CreateDbContextAsync(ct);

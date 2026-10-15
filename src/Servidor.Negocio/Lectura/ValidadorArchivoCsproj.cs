@@ -1,3 +1,5 @@
+using Servidor.Negocio.Dominio;
+
 namespace Servidor.Negocio.Lectura;
 
 /// <summary>Validaciones de forma previas a leer el contenido: presencia, extensión y tamaño.</summary>
@@ -21,6 +23,10 @@ public sealed class ValidadorArchivoCsproj(OpcionesLectura opciones)
         var limpio = NombreSinRuta(nombre);
         if (!limpio.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) || limpio.Length <= ".csproj".Length)
             throw new ArchivoInvalidoException(CodigosLectura.ExtensionInvalida, "El archivo debe tener la extensión .csproj.");
+
+        if (LimitesDatos.Excede(limpio, LimitesDatos.NombreArchivo))
+            throw new ArchivoInvalidoException(CodigosLectura.NombreArchivoDemasiadoLargo,
+                $"El nombre del archivo tiene {LimitesDatos.Longitud(limpio)} caracteres; el máximo permitido es {LimitesDatos.NombreArchivo}. Renómbralo e inténtalo de nuevo.");
 
         if (longitud.Value <= 0)
             throw new ArchivoInvalidoException(CodigosLectura.ArchivoVacio, "El archivo está vacío.");

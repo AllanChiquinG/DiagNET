@@ -30,6 +30,9 @@ public static class CodigosError
     public const string CuerpoExcedeTamano = "cuerpo_excede_tamano";
     public const string XmlInvalido = "xml_invalido";
     public const string ProyectoInvalido = "proyecto_invalido";
+    public const string NombreArchivoDemasiadoLargo = "nombre_archivo_demasiado_largo";
+    public const string NombrePaqueteDemasiadoLargo = "nombre_paquete_demasiado_largo";
+    public const string VersionDemasiadoLarga = "version_demasiado_larga";
     public const string FrameworkFueraDeAlcance = "framework_fuera_de_alcance";
     public const string LimiteDependenciasExcedido = "limite_dependencias_excedido";
     public const string IdentificadorInvalido = "identificador_invalido";
@@ -49,6 +52,9 @@ public static class CodigosError
         new(CuerpoExcedeTamano, 413, "La solicitud supera el tamaño máximo permitido"),
         new(XmlInvalido, 400, "El archivo no es un XML válido"),
         new(ProyectoInvalido, 400, "El archivo no es un proyecto de .NET"),
+        new(NombreArchivoDemasiadoLargo, 400, "El nombre del archivo es demasiado largo"),
+        new(NombrePaqueteDemasiadoLargo, 422, "Un identificador de paquete es demasiado largo"),
+        new(VersionDemasiadoLarga, 422, "Una versión declarada es demasiado larga"),
         new(FrameworkFueraDeAlcance, 422, "El proyecto no usa .NET 8 ni .NET 10"),
         new(LimiteDependenciasExcedido, 422, "El proyecto declara más dependencias de las permitidas"),
         new(IdentificadorInvalido, 400, "El identificador no es válido"),

@@ -8,16 +8,15 @@ namespace Servidor.Datos.Mapeo;
 /// <summary>Convierte entre el resultado de dominio y las filas. Las fechas se guardan en UTC (timestamptz).</summary>
 internal static class MapeadorAnalisis
 {
-    private const int MaximoFrameworkObjetivo = 100;
-
     public static AnalisisFila AFila(Analisis a)
     {
-        var resumenFrameworks = string.Join(';', a.FrameworksDeclarados);
+        // framework_objetivo es solo un resumen legible (varchar(100)); la lista exacta se guarda completa en frameworks_declarados (jsonb).
+        var resumenFrameworks = LimitesDatos.Recortar(string.Join(';', a.FrameworksDeclarados), LimitesDatos.FrameworkObjetivo);
         return new AnalisisFila
         {
             Id = a.Id,
             NombreArchivo = a.NombreArchivo,
-            FrameworkObjetivo = resumenFrameworks.Length <= MaximoFrameworkObjetivo ? resumenFrameworks : resumenFrameworks[..MaximoFrameworkObjetivo],
+            FrameworkObjetivo = resumenFrameworks,
             FechaAnalisis = a.FechaAnalisis.ToUniversalTime(),
             Estado = Texto(a.Estado),
             TotalDependencias = a.Dependencias.Count,

@@ -117,12 +117,14 @@ public class AnalisisRepositorioTests(BaseDeDatosFixture bd) : IClassFixture<Bas
     // ---------- atomicidad e integridad ----------
 
     [Fact]
-    public async Task Si_falla_algo_no_se_guarda_nada_en_ninguna_tabla()
+    public async Task Si_la_base_rechaza_algo_no_se_guarda_nada_en_ninguna_tabla()
     {
+        // La 2.ª dependencia repite la misma recomendación (viola ux_recomendacion en la base): toda la transacción debe deshacerse,
+        // incluidos el análisis, la 1.ª dependencia y sus diagnósticos, que ya se habían insertado en la misma operación.
+        var duplicada = Muestras.Desactualizada("Ejemplo.Duplicada");
         var invalida = Muestras.Completo() with
         {
-            // La segunda dependencia viola varchar(200): toda la transacción debe deshacerse.
-            Dependencias = [Muestras.Actualizada("Ejemplo.Valida"), Muestras.Desactualizada(new string('x', 201))],
+            Dependencias = [Muestras.Actualizada("Ejemplo.Valida"), duplicada with { Recomendaciones = [duplicada.Recomendaciones[0], duplicada.Recomendaciones[0]] }],
         };
         var antes = await ContarFilasAsync();
 
@@ -130,6 +132,18 @@ public class AnalisisRepositorioTests(BaseDeDatosFixture bd) : IClassFixture<Bas
 
         Assert.Equal(antes, await ContarFilasAsync());
         Assert.Null(await Repo.ObtenerAsync(invalida.Id));
+    }
+
+    [Fact]
+    public async Task Un_valor_que_excede_un_limite_se_rechaza_con_un_error_claro_sin_tocar_la_base()
+    {
+        var invalida = Muestras.Completo() with { Dependencias = [Muestras.Actualizada("Ejemplo.Valida"), Muestras.Desactualizada(new string('x', 201))] };
+        var antes = await ContarFilasAsync();
+
+        var ex = await Assert.ThrowsAsync<ValorExcedeLimiteException>(() => Repo.GuardarAsync(invalida));
+
+        Assert.Equal("dependencia.nombre_paquete", ex.Campo);
+        Assert.Equal(antes, await ContarFilasAsync());
     }
 
     [Fact]
