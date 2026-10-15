@@ -4,8 +4,10 @@ namespace Servidor.Negocio.Orquestacion;
 /// Comparte UNA ejecución entre todas las solicitudes simultáneas equivalentes (misma clave). Reglas:
 /// <list type="bullet">
 /// <item>Cada llamador espera con su PROPIO token: si cancela, deja de esperar sin cancelar la operación para los demás.</item>
-/// <item>La operación compartida solo se cancela cuando ya no queda ningún llamador esperando.</item>
-/// <item>Al terminar (con éxito, error o cancelación) la operación se retira: una llamada posterior empieza una nueva (normalmente servida por la caché).</item>
+/// <item>La operación compartida solo se cancela cuando ya no queda ningún llamador esperando; en ese mismo instante se retira del diccionario,
+/// de modo que nadie que llegue después herede una operación cancelada (empieza una nueva).</item>
+/// <item>Al terminar (con éxito, error o cancelación) la operación se retira SOLO si sigue siendo la registrada para esa clave: una operación vieja
+/// que termina tarde no puede retirar a la nueva.</item>
 /// </list>
 /// La clave decide qué es «equivalente»: quien la construya debe incluir todo lo que cambia el resultado (versión, TFM…).
 /// </summary>
@@ -13,8 +15,8 @@ public sealed class Deduplicador<TClave, TResultado> where TClave : notnull
 {
     private sealed class Operacion
     {
-        public required Task<TResultado> Tarea { get; init; }
-        public required CancellationTokenSource Cancelacion { get; init; }
+        public Task<TResultado> Tarea { get; set; } = null!;
+        public CancellationTokenSource Cancelacion { get; } = new();
         public int Esperando;
     }
 
@@ -35,20 +37,22 @@ public sealed class Deduplicador<TClave, TResultado> where TClave : notnull
         {
             if (!_enVuelo.TryGetValue(clave, out operacion!))
             {
-                var fuente = new CancellationTokenSource();
-                var tarea = Task.Run(async () =>
+                var nueva = new Operacion();
+                nueva.Tarea = Task.Run(async () =>
                 {
                     try
                     {
-                        return await fabrica(fuente.Token);
+                        return await fabrica(nueva.Cancelacion.Token);
                     }
                     finally
                     {
-                        lock (_candado) _enVuelo.Remove(clave);
-                        fuente.Dispose();
+                        lock (_candado)
+                        {
+                            if (_enVuelo.TryGetValue(clave, out var actual) && ReferenceEquals(actual, nueva)) _enVuelo.Remove(clave);
+                        }
                     }
                 }, CancellationToken.None);
-                operacion = new Operacion { Tarea = tarea, Cancelacion = fuente };
+                operacion = nueva;
                 _enVuelo[clave] = operacion;
             }
 
@@ -67,6 +71,8 @@ public sealed class Deduplicador<TClave, TResultado> where TClave : notnull
             {
                 operacion.Esperando--;
                 cancelarOperacion = operacion.Esperando == 0 && !operacion.Tarea.IsCompleted;
+                if (cancelarOperacion && _enVuelo.TryGetValue(clave, out var actual) && ReferenceEquals(actual, operacion))
+                    _enVuelo.Remove(clave);   // ya no se puede compartir: quien llegue ahora inicia una operación nueva
             }
 
             if (cancelarOperacion)

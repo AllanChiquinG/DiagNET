@@ -540,6 +540,71 @@ public class ServicioMetadatosTests
     }
 
     [Fact]
+    public async Task La_consulta_compartida_no_prolonga_el_presupuesto_de_ningun_solicitante_y_se_cancela_cuando_todos_se_fueron()
+    {
+        var cancelada = new TaskCompletionSource();
+        _nuget.Comportamiento = async (_, _, ct) =>
+        {
+            ct.Register(() => cancelada.TrySetResult());
+            await Task.Delay(Timeout.Infinite, ct);
+            return default!;
+        };
+        var servicio = Crear();
+        using var presupuestoA = new PresupuestoTiempo(TimeSpan.FromSeconds(120), _tiempo);
+        var a = servicio.ObtenerAsync(Consulta(), presupuestoA);
+        await Esperar(() => _nuget.Llamadas >= 1);
+
+        _tiempo.Advance(TimeSpan.FromSeconds(60));
+        using var presupuestoB = new PresupuestoTiempo(TimeSpan.FromSeconds(120), _tiempo);   // B llega 60 s después y se une a la misma consulta
+        var b = servicio.ObtenerAsync(Consulta(), presupuestoB);
+        await Task.Delay(30);
+
+        _tiempo.Advance(TimeSpan.FromSeconds(61));                                              // t = 121 s: se agotó A (B lleva 61 s)
+        var resultadoA = await a.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(resultadoA.DegradadoPorPresupuesto);                                        // A no queda atado a la espera de B
+        Assert.False(b.IsCompleted);                                                            // B conserva su propio presupuesto
+        Assert.False(cancelada.Task.IsCompleted);                                               // y mientras B espera, la consulta sigue
+        Assert.Equal(1, servicio.ConsultasEnVuelo);
+
+        _tiempo.Advance(TimeSpan.FromSeconds(60));                                              // t = 181 s: se agotó B (120 s tras su llegada)
+        var resultadoB = await b.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(resultadoB.DegradadoPorPresupuesto);
+        await cancelada.Task.WaitAsync(TimeSpan.FromSeconds(5));                                // se fueron todos: la consulta se cancela
+        await Esperar(() => servicio.ConsultasEnVuelo == 0);
+        Assert.Equal(1, _nuget.Llamadas);                                                       // y nunca hubo una segunda consulta
+    }
+
+    [Fact]
+    public async Task Tras_irse_todos_un_nuevo_solicitante_inicia_su_propia_consulta_y_recibe_un_resultado_normal()
+    {
+        var primera = true;
+        var observada = new TaskCompletionSource();
+        _nuget.Comportamiento = async (c, _, ct) =>
+        {
+            if (primera)
+            {
+                primera = false;
+                ct.Register(() => observada.TrySetResult());
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+
+            return ResultadoNuGet<InformacionPaquete>.Correcto(Paquetes.Info(c.Paquete, c.VersionDeclarada), [], 2);
+        };
+        var servicio = Crear();
+        using var cts = new CancellationTokenSource();
+        var cancelable = servicio.ObtenerAsync(Consulta(), null, cts.Token);
+        await Esperar(() => _nuget.Llamadas >= 1);
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelable);
+        await observada.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var r = await servicio.ObtenerAsync(Consulta()).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(OrigenDato.Nuget, r.Origen);
+        Assert.Equal(2, _nuget.Llamadas);
+    }
+
+    [Fact]
     public async Task Si_NuGet_informa_PresupuestoAgotado_el_resultado_queda_marcado_como_degradado_por_presupuesto()
     {
         _nuget.Comportamiento = (_, _, _) => Task.FromResult(NoDisponible(CausaFallo.PresupuestoAgotado));

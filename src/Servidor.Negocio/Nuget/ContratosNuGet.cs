@@ -63,6 +63,7 @@ public sealed record AvisoVulnerabilidad(string? Severidad, string? Url);
 /// <param name="Version">Versión normalizada (SemVer / reglas de NuGet).</param>
 /// <param name="Publicada"><c>null</c> si NuGet no informa fecha (las versiones no listadas usan 1900: se descarta).</param>
 /// <param name="Licencia">Expresión de licencia si existe; si no, la URL de licencia. Puede ser larga: la caché la limita, el resultado guardado no.</param>
+/// <param name="DeprecacionConocida"><c>false</c> cuando solo se conoce el número de versión (p. ej. reconstruida desde la selección en caché): entonces <c>Deprecacion == null</c> significa «no determinado», no «sin deprecación».</param>
 /// <param name="GruposFramework">Un TFM por grupo de dependencias; la cadena vacía representa un grupo sin framework (aplica a todos).</param>
 public sealed record VersionPublicada(
     string Version,
@@ -74,7 +75,8 @@ public sealed record VersionPublicada(
     TipoLicencia? TipoLicencia,
     Deprecacion? Deprecacion,
     IReadOnlyList<string> GruposFramework,
-    IReadOnlyList<AvisoVulnerabilidad> Vulnerabilidades);
+    IReadOnlyList<AvisoVulnerabilidad> Vulnerabilidades,
+    bool DeprecacionConocida = true);
 
 public enum EstadoVersionDeclarada
 {

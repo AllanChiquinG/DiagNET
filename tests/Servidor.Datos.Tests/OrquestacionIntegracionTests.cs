@@ -8,45 +8,17 @@ using Servidor.Negocio.Dominio;
 using Servidor.Negocio.Lectura;
 using Servidor.Negocio.Nuget;
 using Servidor.Negocio.Orquestacion;
+using Servidor.Negocio.Reglas;
 
 namespace Servidor.Datos.Tests;
 
 /// <summary>
 /// Integración de E5 con los módulos REALES disponibles: lector (E2), repositorios sobre PostgreSQL real (E3), gateway de NuGet (E4) con respuestas
-/// SIMULADAS (sin internet). Los motores de diagnóstico y recomendación son SUSTITUTOS EXCLUSIVOS DE PRUEBAS de E6/E7 (aún no implementados).
+/// SIMULADAS (sin internet) y el MOTOR REAL de diagnóstico (E6). Solo el motor de recomendaciones es un SUSTITUTO EXCLUSIVO DE PRUEBAS (E7 aún no implementado).
 /// </summary>
 public class OrquestacionIntegracionTests(BaseDeDatosFixture bd) : IClassFixture<BaseDeDatosFixture>
 {
     // ---------------- sustitutos de pruebas (NO son los motores de E6/E7) ----------------
-
-    private sealed class MotorDiagnosticoDePrueba : IMotorDiagnostico
-    {
-        public string VersionReglas => "prueba-sustituto-e6";
-
-        public Diagnostico Diagnosticar(ContextoDiagnostico c)
-        {
-            var info = c.Metadato.Informacion;
-            var (estado, motivo) = info is null ? (EstadoDiagnostico.NoDeterminada, "Sin datos de NuGet.")
-                : info.Declarada is null ? (EstadoDiagnostico.NoDeterminada, "Versión declarada no hallada.")
-                : info.UltimaEstable is not null && info.UltimaEstable.Version != info.Declarada.Version ? (EstadoDiagnostico.Desactualizada, "Hay una versión más reciente.")
-                : (EstadoDiagnostico.Actualizada, "Al día.");
-            var indicadores = info?.Declarada is null ? null : new IndicadoresLibreria(
-                new Indicador<DateTimeOffset?>(Disponibilidad.Conocido, info.Declarada.Publicada),
-                new Indicador<string?>(Disponibilidad.Conocido, info.UltimaEstable?.Version),
-                new Indicador<string?>(Disponibilidad.NoDeterminado, null),
-                info.SeleccionCompleta,
-                new Indicador<int?>(Disponibilidad.NoDeterminado, null),
-                new Indicador<long?>(info.Descargas is null ? Disponibilidad.NoDeterminado : Disponibilidad.Conocido, info.Descargas, info.DescargasNota),
-                new Indicador<Licencia?>(info.Declarada.Licencia is null ? Disponibilidad.NoDeterminado : Disponibilidad.Conocido,
-                    info.Declarada.Licencia is null || info.Declarada.TipoLicencia is null ? null : new Licencia(info.Declarada.TipoLicencia.Value, info.Declarada.Licencia)),
-                new Indicador<bool?>(Disponibilidad.Conocido, info.Declarada.Deprecacion is not null),
-                info.Declarada.Deprecacion,
-                info.CompatibilidadDeclarada,
-                new Indicador<bool?>(Disponibilidad.NoEvaluado, null, "DiagNET no evalúa AOT en esta versión."));
-            return new Diagnostico(estado, motivo, info?.UltimaEstable?.Version, [], c.FrameworksEvaluados.Select(t => new EvaluacionTfm(t, estado)).ToList(),
-                OrigenDato.Nuget, DateTimeOffset.UnixEpoch, indicadores);
-        }
-    }
 
     private sealed class MotorRecomendacionDePrueba : IMotorRecomendacion
     {
@@ -96,7 +68,7 @@ public class OrquestacionIntegracionTests(BaseDeDatosFixture bd) : IClassFixture
         tiempo ??= new FakeTimeProvider(new DateTimeOffset(2026, 10, 15, 12, 0, 0, TimeSpan.Zero));
         var gateway = new NuGetGateway(new HttpClient(http) { Timeout = Timeout.InfiniteTimeSpan }, nuget ?? new OpcionesNuGet { ConsultarDescargas = false }, tiempo);
         var metadatos = new ServicioMetadatos(gateway, bd.Metadatos, new InferidorCompatibilidad(), tiempo);
-        var orquestador = new OrquestadorAnalisis(new LectorCsproj(new OpcionesLectura()), metadatos, new MotorDiagnosticoDePrueba(),
+        var orquestador = new OrquestadorAnalisis(new LectorCsproj(new OpcionesLectura()), metadatos, new MotorDiagnostico(),
             new MotorRecomendacionDePrueba(), repositorio ?? bd.Analisis, tiempo, opciones);
         return new Entorno(orquestador, http, tiempo, metadatos);
     }
@@ -125,7 +97,58 @@ public class OrquestacionIntegracionTests(BaseDeDatosFixture bd) : IClassFixture
         var leido = await reinicio.GetRequiredService<IAnalisisRepositorio>().ObtenerAsync(r.Analisis.Id);
         Assert.Equal(Muestras.Json(r.Analisis), Muestras.Json(leido));
         Assert.Equal([EstadoDiagnostico.Actualizada, EstadoDiagnostico.Desactualizada], leido!.Dependencias.Select(d => d.Diagnostico.Estado));
+        Assert.Equal("e6-1.1|ant=24m|agr=pes", leido.VersionReglas);                                  // las reglas usadas quedan guardadas con el análisis
+        Assert.Contains(leido.Dependencias[1].Diagnostico.Hallazgos, h => h.Codigo == "version_posterior_compatible" && h.Evidencia.Count > 0);
+        Assert.Equal(Disponibilidad.NoEvaluado, leido.Dependencias[0].Diagnostico.Indicadores!.Aot.Disponibilidad);
         Assert.Single(leido.Dependencias[1].Recomendaciones);
+    }
+
+    [Fact]
+    public async Task Una_licencia_de_tipo_desconocido_y_los_indicadores_del_motor_real_se_guardan_y_se_recuperan_sin_cambios()
+    {
+        var uno = Unico("Ejemplo.L");
+        var r = await Crear().Orquestador.AnalizarAsync("Mi.csproj", Flujo(Csproj((uno, "2.0.0"))));
+        var original = r.Analisis.Dependencias.Single();
+        var conTipoDesconocido = original with
+        {
+            Diagnostico = original.Diagnostico with
+            {
+                Indicadores = original.Diagnostico.Indicadores! with
+                {
+                    Licencia = new Indicador<Licencia?>(Disponibilidad.Conocido, new Licencia(null, "https://ejemplo.org/licencia"))
+                }
+            }
+        };
+        var analisis = r.Analisis with { Id = Guid.NewGuid(), Dependencias = [conTipoDesconocido] };
+
+        await bd.Analisis.GuardarAsync(analisis);
+        var leido = (await bd.Analisis.ObtenerAsync(analisis.Id))!;
+
+        Assert.Equal(Muestras.Json(analisis), Muestras.Json(leido));
+        Assert.Null(leido.Dependencias.Single().Diagnostico.Indicadores!.Licencia.Valor!.Tipo);
+    }
+
+    [Fact]
+    public async Task Los_analisis_guardados_con_reglas_anteriores_se_leen_intactos_y_la_marca_de_evidencia_faltante_se_guarda_y_se_recupera()
+    {
+        var r = await Crear().Orquestador.AnalizarAsync("Mi.csproj", Flujo(Csproj((Unico("Ejemplo.M"), "2.0.0"), ("Ejemplo.NoExiste", "1.0.0"))));
+        var id = r.Analisis.Id;
+
+        // La marca nueva se guarda y se recupera.
+        var leido = (await bd.Analisis.ObtenerAsync(id))!;
+        Assert.Contains(leido.Dependencias[1].Diagnostico.Hallazgos, h => h.EvidenciaDecisivaFaltante);
+        Assert.Equal(Muestras.Json(r.Analisis), Muestras.Json(leido));
+
+        // Un análisis guardado con la versión anterior de reglas (hallazgos sin el campo nuevo y version_reglas e6-1.0) se lee igual, con la marca en false.
+        await bd.EjecutarAsync("UPDATE analisis SET version_reglas = 'e6-1.0|ant=24m|agr=pes' WHERE id = '" + id + "'");
+        await bd.EjecutarAsync(
+            "UPDATE diagnostico SET hallazgos = (SELECT COALESCE(jsonb_agg(elem - 'evidenciaDecisivaFaltante' - 'EvidenciaDecisivaFaltante'), '[]'::jsonb) FROM jsonb_array_elements(hallazgos) elem)");
+        var antiguo = (await bd.Analisis.ObtenerAsync(id))!;
+
+        Assert.Equal("e6-1.0|ant=24m|agr=pes", antiguo.VersionReglas);     // la versión original NO se reinterpreta
+        Assert.All(antiguo.Dependencias.SelectMany(d => d.Diagnostico.Hallazgos), h => Assert.False(h.EvidenciaDecisivaFaltante));
+        Assert.Equal(leido.Dependencias.Select(d => d.Diagnostico.Estado), antiguo.Dependencias.Select(d => d.Diagnostico.Estado));
+        Assert.Equal(leido.Dependencias[0].Diagnostico.Motivos, antiguo.Dependencias[0].Diagnostico.Motivos);
     }
 
     [Fact]

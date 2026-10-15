@@ -99,10 +99,17 @@ public sealed class OrquestadorAnalisis(
             advertencias.Add(new("sin_framework_evaluable",
                 "Ningún framework del proyecto se pudo evaluar (ausente, con variable o fuera de alcance): la compatibilidad no se determina."));
 
-        // Parcial: alguna dependencia sin evidencia decisiva (incluye lo pendiente por presupuesto) o ningún TFM resuelto. Caché vencida, licencia o AOT no lo vuelven parcial.
-        var parcial = noDeterminadas > 0 || evaluados.Count == 0;
-        if (parcial && noDeterminadas > 0)
-            advertencias.Add(new("analisis_parcial", $"{noDeterminadas} de {resultados.Length} dependencia(s) no pudieron determinarse. Puedes volver a analizar el archivo más tarde."));
+        // Parcial: alguna dependencia sin estado determinado, o con un estado (aunque sea negativo) al que le falta evidencia decisiva, o ningún TFM resuelto.
+        // La incertidumbre no se esconde detrás de un estado negativo. Caché vencida, licencia, descargas, antigüedad o AOT no lo vuelven parcial.
+        var incompletas = resultados.Count(d => d.Diagnostico.Estado != EstadoDiagnostico.NoDeterminada && d.Diagnostico.TieneEvidenciaIncompleta());
+        var parcial = noDeterminadas > 0 || incompletas > 0 || evaluados.Count == 0;
+        if (noDeterminadas > 0 || incompletas > 0)
+        {
+            var partes = new List<string>();
+            if (noDeterminadas > 0) partes.Add($"{noDeterminadas} de {resultados.Length} dependencia(s) no pudieron determinarse");
+            if (incompletas > 0) partes.Add($"{incompletas} tiene(n) un estado conocido pero con evidencia decisiva incompleta");
+            advertencias.Add(new("analisis_parcial", string.Join("; ", partes) + ". Puedes volver a analizar el archivo más tarde."));
+        }
 
         var analisis = new Analisis(
             Guid.NewGuid(),

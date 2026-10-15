@@ -28,7 +28,8 @@ public sealed record Evidencia(string Clave, string Valor);
 /// <summary><typeparamref name="T"/> debe admitir nulo (<c>bool?</c>, <c>long?</c>, <c>string?</c>): «sin valor» nunca es <c>false</c> ni <c>0</c>.</summary>
 public sealed record Indicador<T>(Disponibilidad Disponibilidad, T? Valor = default, string? Nota = null);
 
-public sealed record Licencia(TipoLicencia Tipo, string Valor);
+/// <summary><paramref name="Tipo"/> es el tipo RECIBIDO de NuGet; <c>null</c> = desconocido (nunca se deduce del texto).</summary>
+public sealed record Licencia(TipoLicencia? Tipo, string Valor);
 
 public sealed record Deprecacion(IReadOnlyList<string> Razones, string? Mensaje, string? PaqueteAlterno, string? RangoVersionAlterno);
 
@@ -48,7 +49,14 @@ public sealed record IndicadoresLibreria(
     IReadOnlyList<CompatibilidadTfm> CompatibilidadPorTfm,
     Indicador<bool?> Aot);
 
-public sealed record Hallazgo(string Regla, string Codigo, GravedadHallazgo Gravedad, string Mensaje, IReadOnlyList<Evidencia> Evidencia);
+/// <param name="EvidenciaDecisivaFaltante"><c>true</c> si el hallazgo declara que falta evidencia decisiva para concluir. Un diagnóstico con alguno de estos hallazgos vuelve PARCIAL el análisis aunque conserve un estado negativo conocido. Los análisis guardados antes de E6 1.1 no tienen la marca (se leen como <c>false</c>).</param>
+public sealed record Hallazgo(string Regla, string Codigo, GravedadHallazgo Gravedad, string Mensaje, IReadOnlyList<Evidencia> Evidencia, bool EvidenciaDecisivaFaltante = false);
+
+public static class DiagnosticoExtensiones
+{
+    /// <summary>El diagnóstico (aunque tenga un estado negativo conocido) no pudo reunir toda la evidencia decisiva: su incertidumbre debe verse y el análisis es parcial.</summary>
+    public static bool TieneEvidenciaIncompleta(this Diagnostico d) => d.Hallazgos.Any(h => h.EvidenciaDecisivaFaltante);
+}
 
 public sealed record EvaluacionTfm(string Tfm, EstadoDiagnostico Estado);
 

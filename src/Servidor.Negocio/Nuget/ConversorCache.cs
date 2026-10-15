@@ -174,10 +174,10 @@ public static class ConversorCache
         var deprecacion = m.Deprecado == true ? new Deprecacion(m.DeprecacionRazones ?? [], m.DeprecacionMensaje, m.PaqueteAlterno, m.RangoAlterno) : null;
         return new VersionPublicada(
             normal, m.Version, normal.Contains('-'), m.FechaPublicacion is not null, m.FechaPublicacion, m.Licencia, m.TipoLicencia, deprecacion,
-            m.FrameworksObjetivo ?? [], []);
+            m.FrameworksObjetivo ?? [], [], DeprecacionConocida: m.Deprecado is not null);
     }
 
     /// <summary>Solo se sabe el número de versión (viene de la selección): el resto queda sin determinar.</summary>
     private static VersionPublicada Minima(string version) =>
-        new(NormalizadorPaquetes.VersionNormalizada(version), version, false, true, null, null, null, null, [], []);
+        new(NormalizadorPaquetes.VersionNormalizada(version), version, false, true, null, null, null, null, [], [], DeprecacionConocida: false);
 }
