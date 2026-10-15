@@ -33,10 +33,12 @@ public sealed class MetadatoRepositorio(IDbContextFactory<AppDbContext> fabrica)
         // Un dato más antiguo nunca pisa a uno más reciente. El nombre conserva las mayúsculas de la primera inserción.
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO metadato_libreria
-                (nombre_paquete, version, fecha_publicacion, descargas, licencia, frameworks_objetivo, compatible_aot, deprecado, fecha_consulta)
+                (nombre_paquete, version, fecha_publicacion, descargas, licencia, frameworks_objetivo, compatible_aot, deprecado, fecha_consulta,
+                 paquete_alterno, rango_alterno)
             VALUES
-                ({m.NombrePaquete.Trim()}, {version}, {publicacion}::timestamptz, {m.Descargas}::bigint, {m.Licencia}::varchar,
-                 {frameworks}::jsonb, {m.CompatibleAot}::boolean, {m.Deprecado}::boolean, {consulta}::timestamptz)
+                ({m.NombrePaquete.Trim()}, {version}, {publicacion}::timestamptz, {m.Descargas}::bigint, {m.Licencia}::text,
+                 {frameworks}::jsonb, {m.CompatibleAot}::boolean, {m.Deprecado}::boolean, {consulta}::timestamptz,
+                 {m.PaqueteAlterno}::varchar, {m.RangoAlterno}::varchar)
             ON CONFLICT (lower(nombre_paquete), version) DO UPDATE SET
                 fecha_publicacion   = EXCLUDED.fecha_publicacion,
                 descargas           = EXCLUDED.descargas,
@@ -44,7 +46,9 @@ public sealed class MetadatoRepositorio(IDbContextFactory<AppDbContext> fabrica)
                 frameworks_objetivo = EXCLUDED.frameworks_objetivo,
                 compatible_aot      = EXCLUDED.compatible_aot,
                 deprecado           = EXCLUDED.deprecado,
-                fecha_consulta      = EXCLUDED.fecha_consulta
+                fecha_consulta      = EXCLUDED.fecha_consulta,
+                paquete_alterno     = EXCLUDED.paquete_alterno,
+                rango_alterno       = EXCLUDED.rango_alterno
             WHERE metadato_libreria.fecha_consulta <= EXCLUDED.fecha_consulta
             """, ct);
     }
@@ -109,5 +113,7 @@ public sealed class MetadatoRepositorio(IDbContextFactory<AppDbContext> fabrica)
         f.FrameworksObjetivo is null ? null : Serializacion.DeJson<List<string>>(f.FrameworksObjetivo),
         f.CompatibleAot,
         f.Deprecado,
-        f.FechaConsulta);
+        f.FechaConsulta,
+        f.PaqueteAlterno,
+        f.RangoAlterno);
 }

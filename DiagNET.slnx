@@ -11,6 +11,7 @@
     <Project Path="tests/Compartido.Contratos.Tests/Compartido.Contratos.Tests.csproj" />
     <Project Path="tests/Servidor.Api.Tests/Servidor.Api.Tests.csproj" />
     <Project Path="tests/Servidor.Datos.Tests/Servidor.Datos.Tests.csproj" />
+    <Project Path="tests/Servidor.Integracion.Tests/Servidor.Integracion.Tests.csproj" />
     <Project Path="tests/Servidor.Negocio.Tests/Servidor.Negocio.Tests.csproj" />
   </Folder>
 </Solution>

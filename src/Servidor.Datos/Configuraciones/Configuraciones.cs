@@ -79,10 +79,15 @@ internal sealed class MetadatoLibreriaConfiguracion : IEntityTypeConfiguration<M
         e.Property(x => x.Version).HasColumnName("version").HasMaxLength(LimitesDatos.Version).IsRequired();
         e.Property(x => x.FechaPublicacion).HasColumnName("fecha_publicacion").HasColumnType("timestamptz");
         e.Property(x => x.Descargas).HasColumnName("descargas");
-        e.Property(x => x.Licencia).HasColumnName("licencia").HasMaxLength(LimitesDatos.Licencia);
+        e.Property(x => x.Licencia).HasColumnName("licencia").HasColumnType("text")
+            .HasComment("Expresión de licencia o URL, tal como la publica NuGet (sin límite de longitud: una URL puede ser larga).");
         e.Property(x => x.FrameworksObjetivo).HasColumnName("frameworks_objetivo").HasColumnType("jsonb");
         e.Property(x => x.CompatibleAot).HasColumnName("compatible_aot").HasComment("NULL = no determinado.");
         e.Property(x => x.Deprecado).HasColumnName("deprecado").HasComment("NULL = no determinado.");
+        e.Property(x => x.PaqueteAlterno).HasColumnName("paquete_alterno").HasMaxLength(LimitesDatos.NombrePaquete)
+            .HasComment("Reemplazo declarado por el autor al deprecar el paquete (NULL si no hay o no se determinó).");
+        e.Property(x => x.RangoAlterno).HasColumnName("rango_alterno").HasMaxLength(LimitesDatos.RangoAlterno)
+            .HasComment("Rango de versiones del paquete alterno, tal como lo declara NuGet.");
         e.Property(x => x.FechaConsulta).HasColumnName("fecha_consulta").HasColumnType("timestamptz").HasDefaultValueSql("now()");
         e.HasIndex(x => x.FechaConsulta).HasDatabaseName("ix_metadato_fecha_consulta");
         // El índice único sobre (lower(nombre_paquete), version) es una expresión: se crea con SQL en la migración.

@@ -14,7 +14,7 @@ public static class LimitesDatos
     public const int FrameworkObjetivo = 100;
     public const int NombrePaquete = 200;
     public const int Version = 100;
-    public const int Licencia = 200;
+    public const int RangoAlterno = 100;
     public const int VersionReglas = 30;
 
     /// <summary>Longitud tal como la cuenta PostgreSQL en varchar(n): caracteres Unicode (un emoji cuenta 1, no 2).</summary>
@@ -87,7 +87,9 @@ public static class ValidadorLimites
     {
         Exigir(m.NombrePaquete, "metadato_libreria.nombre_paquete", LimitesDatos.NombrePaquete);
         Exigir(m.Version, "metadato_libreria.version", LimitesDatos.Version);
-        Exigir(m.Licencia, "metadato_libreria.licencia", LimitesDatos.Licencia);
+        // licencia es text (sin límite en la base; NuGet limita licenseUrl a 4000 al publicar y el lector descarta lo anormal).
+        Exigir(m.PaqueteAlterno, "metadato_libreria.paquete_alterno", LimitesDatos.NombrePaquete);
+        Exigir(m.RangoAlterno, "metadato_libreria.rango_alterno", LimitesDatos.RangoAlterno);
     }
 
     public static void Validar(SeleccionPaquete s)

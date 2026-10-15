@@ -85,6 +85,55 @@ public class MetadatoRepositorioTests(BaseDeDatosFixture bd) : IClassFixture<Bas
     public async Task La_base_rechaza_descargas_negativas() =>
         await Assert.ThrowsAsync<PostgresException>(() => Repo.GuardarAsync(Muestras.Metadato(Nuevo(), "1.0.0", descargas: -5)));
 
+    // ---------- reemplazo declarado y licencia (E4) ----------
+
+    [Fact]
+    public async Task El_paquete_alterno_su_rango_y_la_licencia_completa_se_recuperan_desde_la_cache()
+    {
+        var nombre = Nuevo("Ejemplo.Deprecado");
+        var licencia = "https://example.org/licencias/" + new string('x', 900);
+        await Repo.GuardarAsync(Muestras.Metadato(nombre, "1.0.0", deprecado: true) with
+        {
+            Licencia = licencia,
+            PaqueteAlterno = "Ejemplo.Moderno",
+            RangoAlterno = "[1.0.0, )",
+        });
+
+        var leido = (await Repo.BuscarAsync(nombre, "1.0.0"))!;
+
+        Assert.True(leido.Deprecado);
+        Assert.Equal("Ejemplo.Moderno", leido.PaqueteAlterno);
+        Assert.Equal("[1.0.0, )", leido.RangoAlterno);
+        Assert.Equal(licencia, leido.Licencia);
+    }
+
+    [Fact]
+    public async Task Sin_reemplazo_declarado_alterno_y_rango_quedan_nulos_y_una_renovacion_los_actualiza()
+    {
+        var nombre = Nuevo("Ejemplo.Renovado");
+        await Repo.GuardarAsync(Muestras.Metadato(nombre, "1.0.0", Muestras.Base));
+        var inicial = (await Repo.BuscarAsync(nombre, "1.0.0"))!;
+        Assert.Null(inicial.PaqueteAlterno);
+        Assert.Null(inicial.RangoAlterno);
+
+        await Repo.GuardarAsync(Muestras.Metadato(nombre, "1.0.0", Muestras.Base.AddHours(1), deprecado: true) with { PaqueteAlterno = "Ejemplo.Nuevo", RangoAlterno = "*" });
+
+        var renovado = (await Repo.BuscarAsync(nombre, "1.0.0"))!;
+        Assert.Equal("Ejemplo.Nuevo", renovado.PaqueteAlterno);
+        Assert.Equal("*", renovado.RangoAlterno);
+    }
+
+    [Fact]
+    public async Task Un_dato_antiguo_no_borra_ni_cambia_el_reemplazo_declarado_de_uno_mas_reciente()
+    {
+        var nombre = Nuevo("Ejemplo.Orden");
+        await Repo.GuardarAsync(Muestras.Metadato(nombre, "1.0.0", Muestras.Base.AddHours(1), deprecado: true) with { PaqueteAlterno = "Ejemplo.Nuevo", RangoAlterno = "*" });
+
+        await Repo.GuardarAsync(Muestras.Metadato(nombre, "1.0.0", Muestras.Base, deprecado: false));
+
+        Assert.Equal("Ejemplo.Nuevo", (await Repo.BuscarAsync(nombre, "1.0.0"))!.PaqueteAlterno);
+    }
+
     // ---------- upsert concurrente ----------
 
     [Fact]

@@ -84,6 +84,18 @@ dotnet run deploy/local/CargarDemostracion.cs
 
 Las pruebas de `Servidor.Datos.Tests` usan **PostgreSQL real**: crean una base temporal `diagnet_test_…` con el rol `diagnet_pruebas`, aplican las migraciones y la eliminan al terminar. No tocan `diagnet_nueva`. Si faltan las credenciales, **fallan** (no se omiten).
 
+## Integración con NuGet (E4)
+
+`Servidor.Integracion` consulta **solo nuget.org** (HTTPS) con `NuGetGateway`: descubre los servicios desde el índice `https://api.nuget.org/v3/index.json`, lee el registro de cada paquete (con paginación acotada), selecciona la última versión estable y la última compatible por TFM, y consulta las descargas. La compatibilidad es **inferida** de los grupos de dependencias (no certifica assets ni AOT, que no se evalúa). No descarga paquetes.
+
+Valores configurables en la sección `NuGet` de `appsettings.json` (clase `OpcionesNuGet`): tiempo por intento (10 s), reintentos (3, con esperas de 1, 2 y 4 s), concurrencia (4), disyuntor (se abre tras 5 **operaciones** fallidas consecutivas y descansa 30 s), respuesta máxima (5 MB), redirecciones (3), páginas del registro por paquete (8), identificador máximo (100 caracteres, según la referencia oficial del `.nuspec`).
+
+Las pruebas habituales usan **respuestas simuladas** (no tocan internet). Las comprobaciones **reales** contra nuget.org están en un proyecto aparte, fuera de `DiagNET.slnx`, y se ejecutan a mano:
+
+```bash
+dotnet test tests/Servidor.Integracion.ContratoNuGet.Tests
+```
+
 ## Pruebas
 
 ```bash

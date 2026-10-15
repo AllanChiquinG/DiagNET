@@ -301,15 +301,27 @@ namespace Servidor.Datos.Migraciones
                         .HasColumnName("frameworks_objetivo");
 
                     b.Property<string>("Licencia")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("licencia");
+                        .HasColumnType("text")
+                        .HasColumnName("licencia")
+                        .HasComment("Expresión de licencia o URL, tal como la publica NuGet (sin límite de longitud: una URL puede ser larga).");
 
                     b.Property<string>("NombrePaquete")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("nombre_paquete");
+
+                    b.Property<string>("PaqueteAlterno")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("paquete_alterno")
+                        .HasComment("Reemplazo declarado por el autor al deprecar el paquete (NULL si no hay o no se determinó).");
+
+                    b.Property<string>("RangoAlterno")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("rango_alterno")
+                        .HasComment("Rango de versiones del paquete alterno, tal como lo declara NuGet.");
 
                     b.Property<string>("Version")
                         .IsRequired()

@@ -1,7 +1,7 @@
 namespace Servidor.Negocio.Dominio;
 
 /// <summary>Metadatos de NuGet de una versión de un paquete (EN-03). Funciona como caché compartida entre análisis.</summary>
-/// <remarks>Los valores <c>null</c> significan «no determinado»; nunca se rellenan con 0 ni <c>false</c>.</remarks>
+/// <remarks>Los valores <c>null</c> significan «no determinado»; nunca se rellenan con 0 ni <c>false</c>. <c>PaqueteAlterno</c> y <c>RangoAlterno</c> son el reemplazo declarado por el autor al deprecar.</remarks>
 public sealed record MetadatoLibreria(
     string NombrePaquete,
     string Version,
@@ -11,7 +11,9 @@ public sealed record MetadatoLibreria(
     IReadOnlyList<string>? FrameworksObjetivo,
     bool? CompatibleAot,
     bool? Deprecado,
-    DateTimeOffset FechaConsulta);
+    DateTimeOffset FechaConsulta,
+    string? PaqueteAlterno = null,
+    string? RangoAlterno = null);
 
 /// <summary>
 /// Selección de versiones de un paquete (DEC-11): cuál es la última estable y la última compatible por TFM, con vigencia.

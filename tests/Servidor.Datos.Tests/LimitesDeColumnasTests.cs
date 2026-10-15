@@ -17,7 +17,8 @@ public class LimitesDeColumnasTests(BaseDeDatosFixture bd) : IClassFixture<BaseD
     [InlineData("diagnostico", "ultima_version", LimitesDatos.Version)]
     [InlineData("metadato_libreria", "nombre_paquete", LimitesDatos.NombrePaquete)]
     [InlineData("metadato_libreria", "version", LimitesDatos.Version)]
-    [InlineData("metadato_libreria", "licencia", LimitesDatos.Licencia)]
+    [InlineData("metadato_libreria", "paquete_alterno", LimitesDatos.NombrePaquete)]
+    [InlineData("metadato_libreria", "rango_alterno", LimitesDatos.RangoAlterno)]
     [InlineData("recomendacion", "paquete_alternativo", LimitesDatos.NombrePaquete)]
     [InlineData("recomendacion", "version_sugerida", LimitesDatos.Version)]
     [InlineData("seleccion_paquete", "nombre_paquete", LimitesDatos.NombrePaquete)]
@@ -38,7 +39,7 @@ public class LimitesDeColumnasTests(BaseDeDatosFixture bd) : IClassFixture<BaseD
         var controladas = new HashSet<string>
         {
             "analisis.nombre_archivo", "analisis.framework_objetivo", "analisis.version_reglas", "dependencia.nombre_paquete", "dependencia.version_declarada",
-            "diagnostico.ultima_version", "metadato_libreria.nombre_paquete", "metadato_libreria.version", "metadato_libreria.licencia",
+            "diagnostico.ultima_version", "metadato_libreria.nombre_paquete", "metadato_libreria.version", "metadato_libreria.paquete_alterno", "metadato_libreria.rango_alterno",
             "recomendacion.paquete_alternativo", "recomendacion.version_sugerida", "seleccion_paquete.nombre_paquete", "seleccion_paquete.ultima_version_estable",
             // Valores cerrados (enumeraciones con CHECK), no son texto libre:
             "analisis.estado", "dependencia.tipo_version", "diagnostico.estado", "diagnostico.origen", "recomendacion.tipo",
@@ -109,7 +110,8 @@ public class LimitesDeColumnasTests(BaseDeDatosFixture bd) : IClassFixture<BaseD
     [Theory]
     [InlineData("nombre", 201)]
     [InlineData("version", 101)]
-    [InlineData("licencia", 201)]
+    [InlineData("alterno", 201)]
+    [InlineData("rango", 101)]
     public async Task Un_metadato_que_excede_un_limite_se_rechaza_con_error_claro_y_no_se_guarda(string campo, int longitud)
     {
         var nombre = $"Ejemplo.Largo.{Guid.NewGuid():N}";
@@ -118,7 +120,8 @@ public class LimitesDeColumnasTests(BaseDeDatosFixture bd) : IClassFixture<BaseD
         {
             "nombre" => Muestras.Metadato(valor),
             "version" => Muestras.Metadato(nombre, valor),
-            _ => Muestras.Metadato(nombre) with { Licencia = valor },
+            "alterno" => Muestras.Metadato(nombre) with { PaqueteAlterno = valor },
+            _ => Muestras.Metadato(nombre) with { PaqueteAlterno = "Ejemplo.Nuevo", RangoAlterno = valor },
         };
         var antes = await bd.EscalarAsync<int>("SELECT count(*) FROM metadato_libreria");
 
@@ -132,11 +135,18 @@ public class LimitesDeColumnasTests(BaseDeDatosFixture bd) : IClassFixture<BaseD
     {
         var nombre = new string('m', 200);
         var version = "1.0.0-" + new string('b', 94); // 100 caracteres y ya normalizada
-        await bd.Metadatos.GuardarAsync(Muestras.Metadato(nombre, version) with { Licencia = new string('l', 200) });
+        await bd.Metadatos.GuardarAsync(Muestras.Metadato(nombre, version) with
+        {
+            Licencia = "https://example.org/" + new string('l', 3000), // una URL larga: la columna es text
+            PaqueteAlterno = new string('a', 200),
+            RangoAlterno = new string('r', 100),
+        });
 
         var leido = await bd.Metadatos.BuscarAsync(nombre, version);
 
-        Assert.Equal(200, leido!.Licencia!.Length);
+        Assert.Equal(3020, leido!.Licencia!.Length);
+        Assert.Equal(200, leido.PaqueteAlterno!.Length);
+        Assert.Equal(100, leido.RangoAlterno!.Length);
     }
 
     [Fact]

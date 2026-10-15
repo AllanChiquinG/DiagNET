@@ -60,8 +60,10 @@ public class EsquemaTests(BaseDeDatosFixture bd) : IClassFixture<BaseDeDatosFixt
     [InlineData("metadato_libreria", new[]
     {
         "id:bigint:notnull", "nombre_paquete:varchar(200):notnull", "version:varchar(100):notnull", "fecha_publicacion:timestamp with time zone:null",
-        "descargas:bigint:null", "licencia:varchar(200):null", "frameworks_objetivo:jsonb:null", "compatible_aot:boolean:null", "deprecado:boolean:null",
+        "descargas:bigint:null", "licencia:text:null", "frameworks_objetivo:jsonb:null", "compatible_aot:boolean:null", "deprecado:boolean:null",
         "fecha_consulta:timestamp with time zone:notnull",
+        // E4: reemplazo declarado por el autor al deprecar (sobrevive a la caché)
+        "paquete_alterno:varchar(200):null", "rango_alterno:varchar(100):null",
     })]
     [InlineData("diagnostico", new[]
     {
@@ -153,16 +155,55 @@ public class EsquemaTests(BaseDeDatosFixture bd) : IClassFixture<BaseDeDatosFixt
         {
             await using var db = await propio.Fabrica.CreateDbContextAsync();
             var migraciones = db.Database.GetMigrations().ToList();
-            Assert.Equal(2, migraciones.Count);
+            Assert.Equal(3, migraciones.Count);
             var migrador = db.GetService<IMigrator>();
 
             await migrador.MigrateAsync(migraciones[0]); // vuelve al esquema inicial (equivalente a schema.sql)
+            Assert.Equal(["analisis", "dependencia", "diagnostico", "metadato_libreria", "recomendacion"],
+                await ConsultaEnAsync(propio, "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory' ORDER BY 1"));
             Assert.DoesNotContain("seleccion_paquete", await ConsultaEnAsync(propio, "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"));
             Assert.Equal(["analisis", "dependencia", "diagnostico", "metadato_libreria", "recomendacion"],
                 (await ConsultaEnAsync(propio, "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory' ORDER BY 1")));
 
             await migrador.MigrateAsync(); // y vuelve a aplicarse sin errores
             Assert.Contains("seleccion_paquete", await ConsultaEnAsync(propio, "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"));
+        }
+        finally
+        {
+            await propio.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task La_migracion_de_E4_conserva_los_datos_existentes_y_agrega_las_columnas_nuevas()
+    {
+        await using var propio = new BaseDeDatosFixture();
+        await propio.InitializeAsync();
+        try
+        {
+            await using var db = await propio.Fabrica.CreateDbContextAsync();
+            var migraciones = db.Database.GetMigrations().ToList();
+            var migrador = db.GetService<IMigrator>();
+
+            await migrador.MigrateAsync(migraciones[1]); // esquema anterior: licencia varchar(200), sin columnas de alterno
+            await propio.EjecutarAsync(
+                "INSERT INTO metadato_libreria (nombre_paquete, version, descargas, licencia, frameworks_objetivo, deprecado, fecha_consulta) VALUES " +
+                "('Ejemplo.Antiguo', '1.0.0', 42, 'MIT', '[\"net8.0\"]', true, '2026-10-01T00:00:00Z')," +
+                "('Ejemplo.SinDatos', '2.0.0', NULL, NULL, NULL, NULL, '2026-10-02T00:00:00Z')");
+            await propio.EjecutarAsync("INSERT INTO seleccion_paquete (nombre_paquete, ultima_version_estable, seleccion_completa) VALUES ('Ejemplo.Antiguo', '1.0.0', true)");
+
+            await migrador.MigrateAsync(); // aplica AmpliarMetadatoLibreria sobre datos reales
+
+            Assert.Equal(2, await propio.EscalarAsync<int>("SELECT count(*) FROM metadato_libreria"));
+            Assert.Equal("MIT", await propio.EscalarAsync<string>("SELECT licencia FROM metadato_libreria WHERE nombre_paquete = 'Ejemplo.Antiguo'"));
+            Assert.Equal(42L, await propio.EscalarAsync<long>("SELECT descargas FROM metadato_libreria WHERE nombre_paquete = 'Ejemplo.Antiguo'"));
+            Assert.True(await propio.EscalarAsync<bool>("SELECT deprecado FROM metadato_libreria WHERE nombre_paquete = 'Ejemplo.Antiguo'"));
+            Assert.Equal(1, await propio.EscalarAsync<int>("SELECT count(*) FROM metadato_libreria WHERE nombre_paquete = 'Ejemplo.SinDatos' AND licencia IS NULL AND deprecado IS NULL AND descargas IS NULL"));
+            Assert.Equal(2, await propio.EscalarAsync<int>("SELECT count(*) FROM metadato_libreria WHERE paquete_alterno IS NULL AND rango_alterno IS NULL"));
+            Assert.Equal(1, await propio.EscalarAsync<int>("SELECT count(*) FROM seleccion_paquete"));
+            // ya admite una licencia larga (una URL de 1000 caracteres)
+            await propio.EjecutarAsync($"UPDATE metadato_libreria SET licencia = '{new string('u', 1000)}' WHERE nombre_paquete = 'Ejemplo.Antiguo'");
+            Assert.Equal(1000, await propio.EscalarAsync<int>("SELECT char_length(licencia) FROM metadato_libreria WHERE nombre_paquete = 'Ejemplo.Antiguo'"));
         }
         finally
         {

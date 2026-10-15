@@ -41,6 +41,8 @@ public sealed class MetadatoLibreriaFila
     public bool? CompatibleAot { get; set; }
     public bool? Deprecado { get; set; }
     public DateTimeOffset FechaConsulta { get; set; }
+    public string? PaqueteAlterno { get; set; }
+    public string? RangoAlterno { get; set; }
 }
 
 public sealed class DiagnosticoFila

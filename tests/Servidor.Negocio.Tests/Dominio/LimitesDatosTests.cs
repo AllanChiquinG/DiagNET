@@ -103,16 +103,23 @@ public class LimitesDatosTests
 
     [Fact]
     public void Un_metadato_en_los_limites_exactos_es_valido() =>
-        ValidadorLimites.Validar(Metadato(new string('p', 200), new string('1', 100), new string('l', 200)));
+        ValidadorLimites.Validar(Metadato(new string('p', 200), new string('1', 100), new string('l', 5000)) with { PaqueteAlterno = new string('a', 200), RangoAlterno = new string('r', 100) }); // la licencia es text: sin límite en la base
 
     [Theory]
     [InlineData("nombre", 201, "metadato_libreria.nombre_paquete")]
     [InlineData("version", 101, "metadato_libreria.version")]
-    [InlineData("licencia", 201, "metadato_libreria.licencia")]
+    [InlineData("alterno", 201, "metadato_libreria.paquete_alterno")]
+    [InlineData("rango", 101, "metadato_libreria.rango_alterno")]
     public void Un_metadato_que_excede_un_limite_se_rechaza(string campo, int longitud, string esperado)
     {
         var valor = new string('x', longitud);
-        var m = campo switch { "nombre" => Metadato(nombre: valor), "version" => Metadato(version: valor), _ => Metadato(licencia: valor) };
+        var m = campo switch
+        {
+            "nombre" => Metadato(nombre: valor),
+            "version" => Metadato(version: valor),
+            "alterno" => Metadato() with { PaqueteAlterno = valor },
+            _ => Metadato() with { PaqueteAlterno = "Ejemplo.Nuevo", RangoAlterno = valor },
+        };
 
         Assert.Equal(esperado, Assert.Throws<ValorExcedeLimiteException>(() => ValidadorLimites.Validar(m)).Campo);
     }
