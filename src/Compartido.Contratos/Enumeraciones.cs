@@ -4,7 +4,7 @@ namespace Compartido.Contratos;
 
 // Todas las enumeraciones viajan como texto en snake_case (valores alineados con los CHECK de la base de datos).
 
-/// <summary>Estado principal de una dependencia (RF-09). Precedencia propuesta: ver docs/criterios_diagnostico.md.</summary>
+/// <summary>Estado principal de una dependencia (RF-09). Precedencia propuesta: ver el documento de criterios de diagnóstico del seguimiento.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum EstadoDiagnostico
 {
@@ -54,6 +54,7 @@ public enum TipoVersionDeclarada
     [JsonStringEnumMemberName("flotante")] Flotante,
     [JsonStringEnumMemberName("propiedad")] Propiedad,
     [JsonStringEnumMemberName("ausente")] Ausente,
+    [JsonStringEnumMemberName("invalida")] Invalida,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

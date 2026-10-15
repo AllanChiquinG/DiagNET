@@ -1,11 +1,24 @@
-using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 
 namespace Servidor.Negocio.Tests;
 
-/// <summary>RNF-12: el núcleo de negocio no depende de EF, HTTP, API ni Contratos.</summary>
+/// <summary>
+/// RNF-12: el núcleo de negocio no depende de EF, HTTP, API ni Contratos.
+/// Se leen los metadatos de la DLL sin cargarla ni ejecutarla, para no depender de que el sistema permita cargarla.
+/// </summary>
 public class DependenciasDeCapasTests
 {
-    private static readonly Assembly Negocio = typeof(Servidor.Negocio.MarcadorAssembly).Assembly;
+    private static IReadOnlyList<string> ReferenciasDeNegocio()
+    {
+        var ruta = Path.Combine(AppContext.BaseDirectory, "Servidor.Negocio.dll");
+        using var flujo = File.OpenRead(ruta);
+        using var pe = new PEReader(flujo);
+        var lector = pe.GetMetadataReader();
+        return lector.AssemblyReferences
+            .Select(h => lector.GetString(lector.GetAssemblyReference(h).Name))
+            .ToList();
+    }
 
     [Theory]
     [InlineData("Compartido.Contratos")]
@@ -17,9 +30,7 @@ public class DependenciasDeCapasTests
     [InlineData("Microsoft.AspNetCore.App")]
     public void Negocio_no_referencia_capas_externas(string prohibido)
     {
-        var referencias = Negocio.GetReferencedAssemblies().Select(a => a.Name);
-
-        Assert.DoesNotContain(prohibido, referencias);
+        Assert.DoesNotContain(prohibido, ReferenciasDeNegocio());
     }
 
     [Fact]

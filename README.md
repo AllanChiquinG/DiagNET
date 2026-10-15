@@ -2,7 +2,7 @@
 
 Aplicación web en español que diagnostica las dependencias NuGet declaradas en un `.csproj` de .NET 8 o .NET 10.
 
-> **Estado:** entrega E0 (solución base). Todavía no hay análisis, base de datos ni integración con NuGet.
+> **Estado:** E0 (solución base), E1 (contratos) y E2 (lectura segura del `.csproj`). Todavía no hay análisis, base de datos ni integración con NuGet.
 
 ## Requisitos
 
@@ -43,6 +43,16 @@ Comprobación de salud:
 ```bash
 curl http://localhost:5228/api/salud
 ```
+
+## Leer un .csproj (E2)
+
+`POST /api/proyectos/lectura` recibe un `multipart/form-data` con el campo `archivo` y devuelve las dependencias y frameworks declarados. No consulta NuGet, no guarda nada y no ejecuta el archivo.
+
+```bash
+curl -F "archivo=@MiProyecto.csproj" http://localhost:5228/api/proyectos/lectura
+```
+
+Límites: archivo de hasta 1 MB, cuerpo HTTP de hasta 2 MB y 100 dependencias directas distintas (configurables en la sección `Lectura` de `appsettings.json`). Los errores se devuelven como Problem Details con un campo `codigo` estable (`archivo_ausente`, `extension_invalida`, `archivo_vacio`, `archivo_excede_tamano`, `cuerpo_excede_tamano`, `xml_invalido`, `proyecto_invalido`, `framework_fuera_de_alcance`, `limite_dependencias_excedido`).
 
 ## Pruebas
 

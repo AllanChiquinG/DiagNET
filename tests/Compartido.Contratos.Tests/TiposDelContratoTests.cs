@@ -63,15 +63,6 @@ public class TiposDelContratoTests
     }
 
     [Fact]
-    public void Todo_codigo_de_error_esta_documentado_en_el_contrato_de_la_api()
-    {
-        var documento = File.ReadAllText(Path.Combine(Ayudas.RaizRepositorio(), "docs", "contrato_api.md"));
-
-        foreach (var definicion in CodigosError.Todos)
-            Assert.Contains($"`{definicion.Codigo}`", documento);
-    }
-
-    [Fact]
     public void Los_errores_se_serializan_como_problem_details_con_extensiones()
     {
         var problema = new ProblemaDto(null, "t", 400, "d", "/api/analisis", CodigosError.XmlInvalido, "ref-1",

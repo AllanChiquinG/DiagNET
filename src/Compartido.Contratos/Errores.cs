@@ -20,7 +20,7 @@ public sealed record ProblemaDto(
 
 public sealed record DefinicionError(string Codigo, int Status, string Titulo);
 
-/// <summary>Catálogo único de errores de la API. Cada código está documentado en docs/contrato_api.md (lo verifica una prueba).</summary>
+/// <summary>Catálogo único de errores de la API. Los códigos de lectura de Negocio deben existir aquí (lo verifica una prueba).</summary>
 public static class CodigosError
 {
     public const string ArchivoAusente = "archivo_ausente";

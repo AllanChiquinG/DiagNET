@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Compartido.Contratos.Tests;
 
-/// <summary>Los ejemplos publicados en docs/ejemplos deben ser válidos contra los tipos reales del contrato.</summary>
+/// <summary>Los fixtures de Ejemplos deben ser válidos contra los tipos reales del contrato.</summary>
 public class EjemplosDeContratoTests
 {
     public static TheoryData<string> Analisis => new()

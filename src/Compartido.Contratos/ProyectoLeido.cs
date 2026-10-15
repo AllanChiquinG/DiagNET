@@ -1,6 +1,7 @@
 namespace Compartido.Contratos;
 
-public sealed record FrameworkDeclaradoDto(string Valor, bool EnAlcance, string? Nota = null);
+/// <summary><paramref name="EnAlcance"/> es <c>null</c> cuando no puede determinarse (p. ej. el valor depende de una variable).</summary>
+public sealed record FrameworkDeclaradoDto(string Valor, bool? EnAlcance, string? Nota = null);
 
 /// <summary>Dependencia tal como la declara el .csproj, sin consultar NuGet. La versión se conserva literal.</summary>
 public sealed record DependenciaLeidaDto(
