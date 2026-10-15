@@ -1,0 +1,17 @@
+# Referencias visuales locales
+/mockups/
+
+# Archivos generados por .NET
+**/bin/
+**/obj/
+.vs/
+TestResults/
+*.user
+*.suo
+
+# Secretos y configuración privada
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+**/appsettings.Local.json

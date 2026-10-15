@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Cliente.Web/Cliente.Web.csproj" />
+    <Project Path="src/Compartido.Contratos/Compartido.Contratos.csproj" />
+    <Project Path="src/Servidor.Api/Servidor.Api.csproj" />
+    <Project Path="src/Servidor.Datos/Servidor.Datos.csproj" />
+    <Project Path="src/Servidor.Integracion/Servidor.Integracion.csproj" />
+    <Project Path="src/Servidor.Negocio/Servidor.Negocio.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Servidor.Api.Tests/Servidor.Api.Tests.csproj" />
+    <Project Path="tests/Servidor.Negocio.Tests/Servidor.Negocio.Tests.csproj" />
+  </Folder>
+</Solution>

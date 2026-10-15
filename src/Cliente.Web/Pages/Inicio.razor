@@ -1,0 +1,39 @@
+@page "/"
+@using Compartido.Contratos
+@inject HttpClient Http
+
+<PageTitle>DiagNET</PageTitle>
+
+<section>
+    <p class="eyebrow">Base de arranque</p>
+    <h1>DiagNET</h1>
+    <p class="lead">La aplicación está en construcción. El análisis de archivos <code>.csproj</code> aún no está disponible.</p>
+
+    <div class="estado" role="status" aria-live="polite">
+        @if (cargando)
+        {
+            <span>Comprobando conexión con el servidor…</span>
+        }
+        else if (salud is not null)
+        {
+            <span class="pill ok">Servidor: @salud.Estado</span>
+            <span class="dato">@salud.Servicio v@(salud.Version) · @salud.FechaServidor.ToLocalTime().ToString("g")</span>
+        }
+        else
+        {
+            <span class="pill bad">Servidor no disponible</span>
+        }
+    </div>
+</section>
+
+@code {
+    private SaludDto? salud;
+    private bool cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { salud = await Http.GetFromJsonAsync<SaludDto>("api/salud"); }
+        catch (HttpRequestException) { salud = null; }
+        finally { cargando = false; }
+    }
+}

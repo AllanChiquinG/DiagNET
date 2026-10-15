@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Servidor.Negocio\Servidor.Negocio.csproj" />
+    <ProjectReference Include="..\Servidor.Datos\Servidor.Datos.csproj" />
+    <ProjectReference Include="..\Servidor.Integracion\Servidor.Integracion.csproj" />
+    <ProjectReference Include="..\Compartido.Contratos\Compartido.Contratos.csproj" />
+    <ProjectReference Include="..\Cliente.Web\Cliente.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.13" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
