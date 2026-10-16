@@ -45,7 +45,7 @@ public class OrquestadorAnalisisTests
         Assert.Equal(["Ejemplo.Uno", "Ejemplo.Dos", "Ejemplo.Tres"], guardado.Dependencias.Select(d => d.Nombre));
         Assert.Equal(EstadoAnalisis.Completo, guardado.Estado);
         Assert.Equal(["net8.0"], guardado.FrameworksEvaluados);
-        Assert.Equal("prueba-sustituto-e6", guardado.VersionReglas);
+        Assert.Equal("prueba-e6+prueba-e7", guardado.VersionReglas);
         Assert.Equal([EstadoDiagnostico.Actualizada, EstadoDiagnostico.Desactualizada, EstadoDiagnostico.Actualizada], guardado.Dependencias.Select(d => d.Diagnostico.Estado));
         Assert.Equal(1, _repo.IntentosDeGuardado);
     }

@@ -25,9 +25,21 @@ public interface IMotorDiagnostico
     Diagnostico Diagnosticar(ContextoDiagnostico contexto);
 }
 
-/// <summary>Puerto del motor de recomendaciones. La implementación definitiva es de E7. Se invoca solo para dependencias deficientes.</summary>
+/// <summary>
+/// Resultado del motor de recomendaciones: las recomendaciones (cero es un resultado válido) y las NOTAS que explican lo que no se pudo hacer
+/// (búsqueda caída, versión común no verificada, ausencia de recomendaciones…). Las notas se guardan con la dependencia.
+/// </summary>
+public sealed record ResultadoRecomendacion(IReadOnlyList<Recomendacion> Recomendaciones, IReadOnlyList<Advertencia> Notas)
+{
+    public static readonly ResultadoRecomendacion Vacio = new([], []);
+}
+
+/// <summary>Puerto del motor de recomendaciones (E7). Se invoca solo para dependencias deficientes.</summary>
 public interface IMotorRecomendacion
 {
-    Task<IReadOnlyList<Recomendacion>> RecomendarAsync(
+    /// <summary>Revisión de las reglas de recomendación; se guarda con el análisis junto a la del diagnóstico.</summary>
+    string VersionReglas { get; }
+
+    Task<ResultadoRecomendacion> RecomendarAsync(
         ContextoDiagnostico contexto, Diagnostico diagnostico, PresupuestoTiempo? presupuesto, CancellationToken ct);
 }

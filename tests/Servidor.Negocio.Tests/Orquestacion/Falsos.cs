@@ -146,7 +146,7 @@ internal sealed class InferidorFalso : IInferidorCompatibilidad
 /// <summary>SUSTITUTO EXCLUSIVO DE PRUEBAS del motor de E6. Reglas mínimas e inventadas solo para ejercitar el orquestador.</summary>
 internal sealed class MotorDiagnosticoDePrueba : IMotorDiagnostico
 {
-    public string VersionReglas => "prueba-sustituto-e6";
+    public string VersionReglas => "prueba-e6";
     public Func<ContextoDiagnostico, Diagnostico?>? Anular { get; set; }
     public ConcurrentQueue<string> Evaluadas { get; } = new();
     private int _simultaneas;
@@ -191,18 +191,19 @@ internal sealed class MotorDiagnosticoDePrueba : IMotorDiagnostico
 /// <summary>SUSTITUTO EXCLUSIVO DE PRUEBAS del motor de E7.</summary>
 internal sealed class MotorRecomendacionDePrueba : IMotorRecomendacion
 {
+    public string VersionReglas => "prueba-e7";
     private int _llamadas;
     public int Llamadas => _llamadas;
     public ConcurrentQueue<string> Paquetes { get; } = new();
     public bool Falla { get; set; }
 
-    public Task<IReadOnlyList<Recomendacion>> RecomendarAsync(ContextoDiagnostico c, Diagnostico d, PresupuestoTiempo? presupuesto, CancellationToken ct)
+    public Task<ResultadoRecomendacion> RecomendarAsync(ContextoDiagnostico c, Diagnostico d, PresupuestoTiempo? presupuesto, CancellationToken ct)
     {
         Interlocked.Increment(ref _llamadas);
         Paquetes.Enqueue(c.Dependencia.Nombre);
         if (Falla) throw new InvalidOperationException("fallo del motor de recomendación");
         IReadOnlyList<Recomendacion> r = [new Recomendacion(TipoRecomendacion.ActualizarVersion, c.Dependencia.Nombre, d.UltimaVersion, "Recomendación de prueba.", [], [], false)];
-        return Task.FromResult(r);
+        return Task.FromResult(new ResultadoRecomendacion(r, []));
     }
 }
 

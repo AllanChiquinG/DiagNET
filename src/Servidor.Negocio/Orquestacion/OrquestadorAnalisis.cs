@@ -44,6 +44,9 @@ public sealed class OrquestadorAnalisis(
     private static readonly EstadoDiagnostico[] Deficientes =
         [EstadoDiagnostico.Desactualizada, EstadoDiagnostico.Incompatible, EstadoDiagnostico.SinSoporteActivo];
 
+    private static readonly HashSet<string> CodigosRecomendacionIncompleta =
+        ["recomendaciones_no_verificadas", "recomendaciones_evaluacion_incompleta", "recomendacion_no_disponible"];
+
     private readonly OpcionesOrquestacion _opciones = opciones ?? new OpcionesOrquestacion();
 
     /// <summary>Lee el archivo (si no es válido lanza <see cref="ArchivoInvalidoException"/>: no se consulta NuGet ni se guarda nada) y lo analiza.</summary>
@@ -95,6 +98,11 @@ public sealed class OrquestadorAnalisis(
         if (degradadas > 0)
             advertencias.Add(new("presupuesto_agotado",
                 $"Se alcanzó el tiempo máximo del análisis ({_opciones.PresupuestoAnalisis.TotalSeconds:0} s): {degradadas} consulta(s) se resolvieron solo con la caché o quedaron sin determinar."));
+        // Las recomendaciones pueden no haberse evaluado por completo SIN que el diagnóstico deje de estar completo: se avisa, pero no se vuelve parcial el análisis.
+        var recomendacionesIncompletas = resultados.Count(d => d.Advertencias.Any(a => CodigosRecomendacionIncompleta.Contains(a.Codigo)));
+        if (recomendacionesIncompletas > 0)
+            advertencias.Add(new("recomendaciones_incompletas",
+                $"En {recomendacionesIncompletas} dependencia(s) las recomendaciones no se pudieron obtener o evaluar por completo (ver el detalle de cada una). El diagnóstico no se ve afectado."));
         if (evaluados.Count == 0)
             advertencias.Add(new("sin_framework_evaluable",
                 "Ningún framework del proyecto se pudo evaluar (ausente, con variable o fuera de alcance): la compatibilidad no se determina."));
@@ -120,7 +128,7 @@ public sealed class OrquestadorAnalisis(
             parcial ? EstadoAnalisis.Parcial : EstadoAnalisis.Completo,
             resultados,
             advertencias,
-            motorDiagnostico.VersionReglas);
+            $"{motorDiagnostico.VersionReglas}+{motorRecomendacion.VersionReglas}");
 
         // Guardado único y atómico del resultado final. No usa el presupuesto (aunque se haya agotado el resultado parcial se guarda).
         try
@@ -185,7 +193,9 @@ public sealed class OrquestadorAnalisis(
         {
             try
             {
-                recomendaciones = await motorRecomendacion.RecomendarAsync(contexto, diagnostico, presupuesto, ct);
+                var resultado = await motorRecomendacion.RecomendarAsync(contexto, diagnostico, presupuesto, ct);
+                recomendaciones = resultado.Recomendaciones;
+                avisos.AddRange(resultado.Notas);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

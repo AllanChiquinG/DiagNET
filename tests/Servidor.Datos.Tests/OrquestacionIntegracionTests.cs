@@ -8,38 +8,36 @@ using Servidor.Negocio.Dominio;
 using Servidor.Negocio.Lectura;
 using Servidor.Negocio.Nuget;
 using Servidor.Negocio.Orquestacion;
+using Servidor.Negocio.Recomendaciones;
 using Servidor.Negocio.Reglas;
 
 namespace Servidor.Datos.Tests;
 
 /// <summary>
 /// Integración de E5 con los módulos REALES disponibles: lector (E2), repositorios sobre PostgreSQL real (E3), gateway de NuGet (E4) con respuestas
-/// SIMULADAS (sin internet) y el MOTOR REAL de diagnóstico (E6). Solo el motor de recomendaciones es un SUSTITUTO EXCLUSIVO DE PRUEBAS (E7 aún no implementado).
+/// SIMULADAS (sin internet) y los MOTORES REALES de diagnóstico (E6) y de recomendaciones (E7). Solo NuGet (HTTP simulado) es un doble de pruebas.
 /// </summary>
 public class OrquestacionIntegracionTests(BaseDeDatosFixture bd) : IClassFixture<BaseDeDatosFixture>
 {
-    // ---------------- sustitutos de pruebas (NO son los motores de E6/E7) ----------------
-
-    private sealed class MotorRecomendacionDePrueba : IMotorRecomendacion
-    {
-        public Task<IReadOnlyList<Recomendacion>> RecomendarAsync(ContextoDiagnostico c, Diagnostico d, PresupuestoTiempo? p, CancellationToken ct)
-        {
-            IReadOnlyList<Recomendacion> r = [new Recomendacion(TipoRecomendacion.ActualizarVersion, c.Dependencia.Nombre, d.UltimaVersion, "Recomendación de prueba.", [], [], false)];
-            return Task.FromResult(r);
-        }
-    }
-
-    // ---------------- NuGet simulado ----------------
+        // ---------------- NuGet simulado ----------------
 
     private sealed class NuGetHttpFalso : HttpMessageHandler
     {
         private const string Base = "https://api.nuget.org/v3/registration5-gz-semver2/";
         public bool Caido { get; set; }
+        public bool BusquedaCaida { get; set; }
         public ConcurrentBag<string> Solicitudes { get; } = [];
         public int Registros => Solicitudes.Count(u => u.StartsWith(Base));
 
-        private static string Hoja(string version) =>
-            "{\"catalogEntry\":{\"version\":\"" + version + "\",\"listed\":true,\"published\":\"2025-01-01T00:00:00+00:00\",\"licenseExpression\":\"MIT\",\"dependencyGroups\":[{\"targetFramework\":\"net8.0\"}]}}";
+        private static string Hoja(string version, string deprecacion = "") =>
+            "{\"catalogEntry\":{\"version\":\"" + version + "\",\"listed\":true,\"published\":\"2025-01-01T00:00:00+00:00\",\"licenseExpression\":\"MIT\",\"dependencyGroups\":[{\"targetFramework\":\"net8.0\"}]"
+            + (deprecacion.Length == 0 ? "" : ",\"deprecation\":" + deprecacion) + "}}";
+
+        private const string DeprecadoConReemplazo = "{\"reasons\":[\"Legacy\"],\"message\":\"Usa Ejemplo.Nueva.\",\"alternatePackage\":{\"id\":\"Ejemplo.Nueva\",\"range\":\"[1.0.0, )\"}}";
+        private const string DeprecadoSinReemplazo = "{\"reasons\":[\"Legacy\"],\"message\":\"Sin mantenimiento.\"}";
+
+        private static string Indice(params string[] hojas) =>
+            "{\"items\":[{\"lower\":\"1.0.0\",\"upper\":\"2.0.0\",\"items\":[" + string.Join(",", hojas) + "]}]}";
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
@@ -48,9 +46,17 @@ public class OrquestacionIntegracionTests(BaseDeDatosFixture bd) : IClassFixture
             if (url == "https://api.nuget.org/v3/index.json")
                 return Json("{\"version\":\"3.0.0\",\"resources\":[{\"@id\":\"" + Base + "\",\"@type\":\"RegistrationsBaseUrl/3.6.0\"},{\"@id\":\"https://azuresearch-usnc.nuget.org/query\",\"@type\":\"SearchQueryService/3.5.0\"}]}");
             if (Caido) return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
-            if (url.StartsWith("https://azuresearch-usnc.nuget.org/query")) return Json("{\"data\":[]}");
+            if (url.StartsWith("https://azuresearch-usnc.nuget.org/query"))
+            {
+                if (BusquedaCaida) return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+                return url.Contains("q=Ejemplo.SinAlterno") || url.Contains("q=ejemplo.sinalterno")
+                    ? Json("{\"data\":[{\"id\":\"Ejemplo.Candidata\",\"version\":\"1.0.0\",\"totalDownloads\":7,\"verified\":false,\"description\":\"Otro paquete\"}]}")
+                    : Json("{\"data\":[]}");
+            }
             if (url.Contains("/ejemplo.lento")) { await Task.Delay(Timeout.Infinite, ct); }
             if (url.EndsWith("/ejemplo.noexiste/index.json")) return new HttpResponseMessage(HttpStatusCode.NotFound);
+            if (url.EndsWith("/ejemplo.vieja/index.json")) return Json(Indice(Hoja("1.0.0", DeprecadoConReemplazo)));
+            if (url.EndsWith("/ejemplo.sinalterno/index.json")) return Json(Indice(Hoja("1.0.0", DeprecadoSinReemplazo)));
             if (url.StartsWith(Base) && url.EndsWith("/index.json"))
                 return Json("{\"items\":[{\"lower\":\"1.0.0\",\"upper\":\"2.0.0\",\"items\":[" + Hoja("1.0.0") + "," + Hoja("2.0.0") + "]}]}");
             return new HttpResponseMessage(HttpStatusCode.NotFound);
@@ -69,7 +75,7 @@ public class OrquestacionIntegracionTests(BaseDeDatosFixture bd) : IClassFixture
         var gateway = new NuGetGateway(new HttpClient(http) { Timeout = Timeout.InfiniteTimeSpan }, nuget ?? new OpcionesNuGet { ConsultarDescargas = false }, tiempo);
         var metadatos = new ServicioMetadatos(gateway, bd.Metadatos, new InferidorCompatibilidad(), tiempo);
         var orquestador = new OrquestadorAnalisis(new LectorCsproj(new OpcionesLectura()), metadatos, new MotorDiagnostico(),
-            new MotorRecomendacionDePrueba(), repositorio ?? bd.Analisis, tiempo, opciones);
+            new MotorRecomendacion(metadatos, gateway), repositorio ?? bd.Analisis, tiempo, opciones);
         return new Entorno(orquestador, http, tiempo, metadatos);
     }
 
@@ -97,7 +103,7 @@ public class OrquestacionIntegracionTests(BaseDeDatosFixture bd) : IClassFixture
         var leido = await reinicio.GetRequiredService<IAnalisisRepositorio>().ObtenerAsync(r.Analisis.Id);
         Assert.Equal(Muestras.Json(r.Analisis), Muestras.Json(leido));
         Assert.Equal([EstadoDiagnostico.Actualizada, EstadoDiagnostico.Desactualizada], leido!.Dependencias.Select(d => d.Diagnostico.Estado));
-        Assert.Equal("e6-1.1|ant=24m|agr=pes", leido.VersionReglas);                                  // las reglas usadas quedan guardadas con el análisis
+        Assert.Equal("e6-1.1|ant=24m|agr=pes+e7-1.0", leido.VersionReglas);                                  // las reglas usadas quedan guardadas con el análisis
         Assert.Contains(leido.Dependencias[1].Diagnostico.Hallazgos, h => h.Codigo == "version_posterior_compatible" && h.Evidencia.Count > 0);
         Assert.Equal(Disponibilidad.NoEvaluado, leido.Dependencias[0].Diagnostico.Indicadores!.Aot.Disponibilidad);
         Assert.Single(leido.Dependencias[1].Recomendaciones);
@@ -149,6 +155,85 @@ public class OrquestacionIntegracionTests(BaseDeDatosFixture bd) : IClassFixture
         Assert.All(antiguo.Dependencias.SelectMany(d => d.Diagnostico.Hallazgos), h => Assert.False(h.EvidenciaDecisivaFaltante));
         Assert.Equal(leido.Dependencias.Select(d => d.Diagnostico.Estado), antiguo.Dependencias.Select(d => d.Diagnostico.Estado));
         Assert.Equal(leido.Dependencias[0].Diagnostico.Motivos, antiguo.Dependencias[0].Diagnostico.Motivos);
+    }
+
+    [Fact]
+    public async Task Las_recomendaciones_con_su_justificacion_evidencia_y_limitaciones_se_guardan_y_reabrir_el_resultado_no_consulta_NuGet()
+    {
+        var e = Crear();
+        var r = await e.Orquestador.AnalizarAsync("Mi.csproj", Flujo(Csproj(("Ejemplo.Vieja", "1.0.0"), (Unico("Ejemplo.Dos"), "1.0.0"))));
+
+        var vieja = r.Analisis.Dependencias[0];
+        Assert.Equal(EstadoDiagnostico.SinSoporteActivo, vieja.Diagnostico.Estado);
+        var alternativa = Assert.Single(vieja.Recomendaciones);
+        Assert.Equal((TipoRecomendacion.Alternativa, "Ejemplo.Nueva"), (alternativa.Tipo, alternativa.Paquete));   // reemplazo declarado por el autor y comprobado
+        Assert.Equal(EstadoDiagnostico.Desactualizada, r.Analisis.Dependencias[1].Diagnostico.Estado);
+        Assert.Equal(TipoRecomendacion.ActualizarVersion, Assert.Single(r.Analisis.Dependencias[1].Recomendaciones).Tipo);
+
+        var solicitudes = e.Http.Solicitudes.Count;
+        await using var reinicio = bd.Reiniciar();
+        var leido = (await reinicio.GetRequiredService<IAnalisisRepositorio>().ObtenerAsync(r.Analisis.Id))!;
+
+        Assert.Equal(solicitudes, e.Http.Solicitudes.Count);                       // reabrir no consulta NuGet
+        Assert.Equal(Muestras.Json(r.Analisis), Muestras.Json(leido));              // el snapshot es idéntico, recomendaciones incluidas
+        var guardada = leido.Dependencias[0].Recomendaciones.Single();
+        Assert.Equal(alternativa.Justificacion, guardada.Justificacion);
+        Assert.NotEmpty(guardada.Evidencia);
+        Assert.Contains(guardada.Evidencia, x => x.Clave == "declarado_por");
+        Assert.Contains(guardada.Limitaciones, l => l.Contains("Puede requerir cambios de código"));
+        Assert.StartsWith("Alternativa sugerida por el autor", guardada.Justificacion);
+        Assert.Contains(guardada.Evidencia, x => x.Clave == "lo_que_no_demuestra_la_declaracion");
+        Assert.True(guardada.PosiblesCambiosDeCodigo);
+    }
+
+    [Fact]
+    public async Task Un_candidato_de_busqueda_se_guarda_solo_para_revision_y_si_la_busqueda_cae_se_conserva_el_diagnostico_con_su_nota()
+    {
+        var e = Crear();
+        var conBusqueda = await e.Orquestador.AnalizarAsync("Mi.csproj", Flujo(Csproj(("Ejemplo.SinAlterno", "1.0.0"))));
+        var candidato = Assert.Single(Assert.Single(conBusqueda.Analisis.Dependencias).Recomendaciones);
+        Assert.Equal((TipoRecomendacion.CandidatoParaRevision, "Ejemplo.Candidata"), (candidato.Tipo, candidato.Paquete));
+        Assert.Contains("NO está demostrada", candidato.Justificacion);
+
+        var e2 = Crear(nuget: new OpcionesNuGet { ConsultarDescargas = false, MaxReintentos = 0 });   // sin reintentos: el reloj de la prueba es simulado
+        e2.Http.BusquedaCaida = true;
+        var sinBusqueda = await e2.Orquestador.AnalizarAsync("Otro.csproj", Flujo(Csproj(("Ejemplo.SinAlterno", "1.0.0"))));
+
+        var leido = (await bd.Analisis.ObtenerAsync(sinBusqueda.Analisis.Id))!;
+        var d = Assert.Single(leido.Dependencias);
+        Assert.Equal(EstadoDiagnostico.SinSoporteActivo, d.Diagnostico.Estado);      // el diagnóstico no se pierde
+        Assert.Empty(d.Recomendaciones);
+        Assert.Contains(d.Advertencias, a => a.Codigo == "busqueda_alternativas_no_disponible");
+        Assert.Contains(d.Advertencias, a => a.Codigo == "recomendaciones_no_verificadas");
+        Assert.DoesNotContain(d.Advertencias, a => a.Codigo == "sin_recomendaciones");  // no se afirma «no hay»: no se pudo comprobar
+        Assert.Equal(EstadoAnalisis.Completo, leido.Estado);                          // no es parcial: la búsqueda no es evidencia decisiva
+        Assert.Contains(leido.Advertencias, a => a.Codigo == "recomendaciones_incompletas");
+    }
+
+    [Fact]
+    public async Task Un_analisis_guardado_con_reglas_y_textos_de_recomendacion_anteriores_se_lee_con_su_contenido_original()
+    {
+        var r = await Crear().Orquestador.AnalizarAsync("Mi.csproj", Flujo(Csproj((Unico("Ejemplo.N"), "1.0.0"))));
+        var dep = r.Analisis.Dependencias.Single();
+        var antigua = new Recomendacion(TipoRecomendacion.Alternativa, "Ejemplo.Vieja.Alterna", "1.0.0",
+            "Reemplazo declarado por NuGet (texto de una versión anterior de las reglas).",
+            [new Evidencia("declarado_por", "el autor")], ["No se garantiza que el cambio no requiera modificar el código."], false);
+        var analisis = r.Analisis with
+        {
+            Id = Guid.NewGuid(),
+            VersionReglas = "e6-1.1|ant=24m|agr=pes",                       // revisión anterior: sin la parte de recomendaciones
+            Dependencias = [dep with { Recomendaciones = [antigua] }],
+        };
+
+        await bd.Analisis.GuardarAsync(analisis);
+        var leido = (await bd.Analisis.ObtenerAsync(analisis.Id))!;
+
+        Assert.Equal("e6-1.1|ant=24m|agr=pes", leido.VersionReglas);        // no se reescribe con la revisión actual
+        var guardada = leido.Dependencias.Single().Recomendaciones.Single();
+        Assert.Equal(antigua.Justificacion, guardada.Justificacion);          // el texto anterior no se re-genera ni se reinterpreta
+        Assert.Equal(antigua.Limitaciones, guardada.Limitaciones);
+        Assert.False(guardada.PosiblesCambiosDeCodigo);
+        Assert.Equal(Muestras.Json(analisis), Muestras.Json(leido));
     }
 
     [Fact]

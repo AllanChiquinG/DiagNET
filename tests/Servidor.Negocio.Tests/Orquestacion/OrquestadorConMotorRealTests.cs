@@ -36,7 +36,7 @@ public class OrquestadorConMotorRealTests
     {
         var r = await Crear().AnalizarAsync("Mi.csproj", Flujo(Csproj("net8.0", ("Ejemplo.Uno", "2.0.0"), ("Ejemplo.Dos", "1.0.0"))));
 
-        Assert.Equal("e6-1.1|ant=24m|agr=pes", r.Analisis.VersionReglas);
+        Assert.Equal("e6-1.1|ant=24m|agr=pes+prueba-e7", r.Analisis.VersionReglas);
         Assert.Equal([EstadoDiagnostico.Actualizada, EstadoDiagnostico.Desactualizada], r.Analisis.Dependencias.Select(d => d.Diagnostico.Estado));
         Assert.All(r.Analisis.Dependencias, d => Assert.NotNull(d.Diagnostico.Indicadores));
         Assert.Equal(EstadoAnalisis.Completo, r.Analisis.Estado);
