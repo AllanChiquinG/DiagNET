@@ -49,19 +49,19 @@ public sealed class AnalisisRepositorio(IDbContextFactory<AppDbContext> fabrica)
     }
 
     public async Task<Pagina<ResumenAnalisis>> ListarAsync(
-        int numeroPagina, int tamanoPagina, IReadOnlyCollection<Guid>? ids = null, CancellationToken ct = default)
+        int numeroPagina, int tamanoPagina, IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(ids);   // un filtro nulo NUNCA lista todos los análisis (DEC-06)
         ArgumentOutOfRangeException.ThrowIfLessThan(numeroPagina, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(tamanoPagina, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(tamanoPagina, 100);
 
+        // Un filtro vacío tampoco: no se consulta la base y la página queda vacía.
+        var lista = ids.Distinct().ToList();
+        if (lista.Count == 0) return new Pagina<ResumenAnalisis>([], numeroPagina, tamanoPagina, 0);
+
         await using var db = await fabrica.CreateDbContextAsync(ct);
-        var consulta = db.Analisis.AsNoTracking().AsQueryable();
-        if (ids is not null)
-        {
-            var lista = ids.ToList();
-            consulta = consulta.Where(a => lista.Contains(a.Id));
-        }
+        var consulta = db.Analisis.AsNoTracking().Where(a => lista.Contains(a.Id));
 
         var total = await consulta.CountAsync(ct);
         var filas = await consulta

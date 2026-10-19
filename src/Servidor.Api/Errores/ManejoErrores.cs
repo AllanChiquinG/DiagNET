@@ -29,6 +29,9 @@ public static class ManejoErrores
         {
             var definicion = CodigosError.Definicion(CodigosError.ErrorInterno);
             var servicio = contexto.RequestServices.GetRequiredService<IProblemDetailsService>();
+            // La referencia que recibe el usuario (en el Problem Details) queda en el registro junto al error, sin la URL ni el contenido de la solicitud.
+            contexto.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Servidor.Api.ErroresNoControlados")
+                .LogError(contexto.Features.Get<IExceptionHandlerFeature>()?.Error, "Error no controlado. Referencia {Referencia}", contexto.TraceIdentifier);
             contexto.Response.StatusCode = definicion.Status;
             await servicio.WriteAsync(new ProblemDetailsContext
             {

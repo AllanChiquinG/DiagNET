@@ -9,8 +9,11 @@ public interface IAnalisisRepositorio
     /// <summary>Devuelve el análisis tal como se guardó, o <c>null</c> si no existe o fue purgado.</summary>
     Task<Analisis?> ObtenerAsync(Guid id, CancellationToken ct = default);
 
-    /// <param name="ids">Si se indica, solo esos análisis (historial por navegador, DEC-06 propuesta); si es <c>null</c>, todos.</param>
-    Task<Pagina<ResumenAnalisis>> ListarAsync(int numeroPagina, int tamanoPagina, IReadOnlyCollection<Guid>? ids = null, CancellationToken ct = default);
+    /// <summary>
+    /// Historial limitado a los identificadores que pide el cliente (DEC-06). El filtro es OBLIGATORIO: no existe ningún modo de listar todos los análisis.
+    /// </summary>
+    /// <param name="ids">Un <c>null</c> lanza <see cref="ArgumentNullException"/>; una lista vacía devuelve una página vacía. Nunca equivale a «todos».</param>
+    Task<Pagina<ResumenAnalisis>> ListarAsync(int numeroPagina, int tamanoPagina, IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
 
     /// <summary>Elimina los análisis anteriores al límite (con sus dependencias, diagnósticos y recomendaciones). Devuelve cuántos.</summary>
     Task<int> EliminarAnterioresAsync(DateTimeOffset limite, CancellationToken ct = default);

@@ -410,7 +410,7 @@ public class OrquestadorAnalisisTests
     {
         public Task GuardarAsync(Analisis analisis, CancellationToken ct = default) { lock (momentos) momentos.Add("guardar"); return Task.CompletedTask; }
         public Task<Analisis?> ObtenerAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
-        public Task<Pagina<ResumenAnalisis>> ListarAsync(int numeroPagina, int tamanoPagina, IReadOnlyCollection<Guid>? ids = null, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Pagina<ResumenAnalisis>> ListarAsync(int numeroPagina, int tamanoPagina, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<int> EliminarAnterioresAsync(DateTimeOffset limite, CancellationToken ct = default) => throw new NotSupportedException();
     }
 

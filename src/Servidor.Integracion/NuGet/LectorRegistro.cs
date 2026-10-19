@@ -207,7 +207,7 @@ internal sealed class LectorRegistro(
         {
             // No se reintenta (repetir no mejora un JSON inválido); se registra con una referencia para el administrador. Sin datos del usuario.
             var referencia = Guid.NewGuid().ToString("N")[..8];
-            log.LogError(ex, "Respuesta inesperada de NuGet. Referencia {Referencia}, recurso {Ruta}", referencia, url.AbsolutePath);
+            log.LogError(ex, "Respuesta inesperada de NuGet. Referencia {Referencia}, host {Host}", referencia, url.Host);   // sin la ruta: contiene el identificador del paquete del proyecto
             return new(EstadoHttp.Fallo, null, CausaFallo.RespuestaInvalida, $"La respuesta de NuGet tiene un formato inesperado (referencia {referencia}).", respuesta.Solicitudes);
         }
     }

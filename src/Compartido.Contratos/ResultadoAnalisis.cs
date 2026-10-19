@@ -6,7 +6,8 @@ public sealed record HallazgoDto(
     string Codigo,
     GravedadHallazgo Gravedad,
     string Mensaje,
-    IReadOnlyList<EvidenciaDto> Evidencia);
+    IReadOnlyList<EvidenciaDto> Evidencia,
+    bool EvidenciaDecisivaFaltante = false);
 
 public sealed record EvaluacionTfmDto(string Tfm, EstadoDiagnostico Estado);
 
@@ -26,7 +27,9 @@ public sealed record RecomendacionDto(
     string Justificacion,
     IReadOnlyList<EvidenciaDto> Evidencia,
     IReadOnlyList<string> Limitaciones,
-    bool PosiblesCambiosDeCodigo);
+    bool PosiblesCambiosDeCodigo,
+    string? Etiqueta = null,
+    string? TextoCambiosDeCodigo = null);
 
 public sealed record DependenciaAnalizadaDto(
     string Nombre,

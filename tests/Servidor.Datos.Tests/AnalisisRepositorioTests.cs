@@ -190,10 +190,16 @@ public class AnalisisRepositorioTests(BaseDeDatosFixture bd) : IClassFixture<Bas
         try
         {
             var fechas = Enumerable.Range(0, 5).Select(i => Muestras.Base.AddHours(i)).ToList();
-            foreach (var f in fechas) await propio.Analisis.GuardarAsync(Muestras.SinPaquetes(fecha: f));
+            var ids = new List<Guid>();
+            foreach (var f in fechas)
+            {
+                var analisis = Muestras.SinPaquetes(fecha: f);
+                ids.Add(analisis.Id);
+                await propio.Analisis.GuardarAsync(analisis);
+            }
 
-            var pagina1 = await propio.Analisis.ListarAsync(1, 2);
-            var pagina3 = await propio.Analisis.ListarAsync(3, 2);
+            var pagina1 = await propio.Analisis.ListarAsync(1, 2, ids);
+            var pagina3 = await propio.Analisis.ListarAsync(3, 2, ids);
 
             Assert.Equal(5, pagina1.Total);
             Assert.Equal(fechas.OrderByDescending(f => f).Take(2), pagina1.Elementos.Select(e => e.FechaAnalisis));
@@ -224,12 +230,57 @@ public class AnalisisRepositorioTests(BaseDeDatosFixture bd) : IClassFixture<Bas
         Assert.Equal(["net8.0", "net10.0", "net48"], fila.FrameworksDeclarados);
     }
 
+    [Fact]
+    public async Task Listar_con_un_filtro_nulo_nunca_lista_todos_los_analisis_lanza_excepcion()
+    {
+        await Repo.GuardarAsync(Muestras.Completo());
+
+        await Assert.ThrowsAsync<ArgumentNullException>(() => Repo.ListarAsync(1, 10, null!));
+    }
+
+    [Fact]
+    public async Task Listar_con_un_filtro_vacio_devuelve_una_pagina_vacia_aunque_existan_analisis()
+    {
+        await Repo.GuardarAsync(Muestras.Completo());
+        await Repo.GuardarAsync(Muestras.Parcial());
+
+        var pagina = await Repo.ListarAsync(1, 10, []);
+
+        Assert.Empty(pagina.Elementos);
+        Assert.Equal(0, pagina.Total);
+        Assert.Equal((1, 10), (pagina.NumeroPagina, pagina.TamanoPagina));
+    }
+
+    [Fact]
+    public async Task Listar_solo_devuelve_los_pedidos_aunque_haya_otros_y_omite_los_desconocidos_sin_error()
+    {
+        var pedido = Muestras.Completo();
+        var ajeno = Muestras.Parcial();
+        await Repo.GuardarAsync(pedido);
+        await Repo.GuardarAsync(ajeno);
+
+        var pagina = await Repo.ListarAsync(1, 10, [pedido.Id, Guid.NewGuid(), pedido.Id]);
+
+        Assert.Equal([pedido.Id], pagina.Elementos.Select(e => e.Id));
+        Assert.Equal(1, pagina.Total);
+    }
+
+    [Fact]
+    public void El_puerto_no_admite_un_filtro_opcional()
+    {
+        var parametro = typeof(IAnalisisRepositorio).GetMethod(nameof(IAnalisisRepositorio.ListarAsync))!.GetParameters().Single(p => p.Name == "ids");
+
+        Assert.False(parametro.HasDefaultValue);                               // no hay forma de llamarlo «sin ids»
+        Assert.Equal("IReadOnlyCollection`1", parametro.ParameterType.Name);
+        Assert.False(new System.Reflection.NullabilityInfoContext().Create(parametro).WriteState == System.Reflection.NullabilityState.Nullable);
+    }
+
     [Theory]
     [InlineData(0, 10)]
     [InlineData(1, 0)]
     [InlineData(1, 101)]
     public async Task Listar_valida_la_paginacion(int pagina, int tamano) =>
-        await Assert.ThrowsAnyAsync<ArgumentOutOfRangeException>(() => Repo.ListarAsync(pagina, tamano));
+        await Assert.ThrowsAnyAsync<ArgumentOutOfRangeException>(() => Repo.ListarAsync(pagina, tamano, [Guid.NewGuid()]));
 
     // ---------- purga e inmutabilidad ----------
 

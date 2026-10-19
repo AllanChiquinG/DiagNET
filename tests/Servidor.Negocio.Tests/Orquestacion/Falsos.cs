@@ -129,7 +129,7 @@ internal sealed class AnalisisRepositorioFalso : IAnalisisRepositorio
 
     public Task<Analisis?> ObtenerAsync(Guid id, CancellationToken ct = default) => Task.FromResult(Guardados.FirstOrDefault(a => a.Id == id));
 
-    public Task<Pagina<ResumenAnalisis>> ListarAsync(int numeroPagina, int tamanoPagina, IReadOnlyCollection<Guid>? ids = null, CancellationToken ct = default) =>
+    public Task<Pagina<ResumenAnalisis>> ListarAsync(int numeroPagina, int tamanoPagina, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
         throw new NotSupportedException();
 
     public Task<int> EliminarAnterioresAsync(DateTimeOffset limite, CancellationToken ct = default) => throw new NotSupportedException();

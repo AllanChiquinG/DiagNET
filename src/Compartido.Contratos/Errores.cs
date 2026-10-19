@@ -40,6 +40,7 @@ public static class CodigosError
     public const string AnalisisNoEncontrado = "analisis_no_encontrado";
     public const string RecursoNoEncontrado = "recurso_no_encontrado";
     public const string PdfNoDisponible = "pdf_no_disponible";
+    public const string DemasiadasSolicitudes = "demasiadas_solicitudes";
     public const string AlmacenamientoNoDisponible = "almacenamiento_no_disponible";
     public const string ErrorInterno = "error_interno";
 
@@ -62,6 +63,7 @@ public static class CodigosError
         new(AnalisisNoEncontrado, 404, "El análisis no existe o ya no está disponible"),
         new(RecursoNoEncontrado, 404, "Recurso no encontrado"),
         new(PdfNoDisponible, 500, "No se pudo generar el PDF"),
+        new(DemasiadasSolicitudes, 429, "Hay demasiados análisis en curso"),
         new(AlmacenamientoNoDisponible, 503, "No se pudo guardar o leer el análisis"),
         new(ErrorInterno, 500, "Ocurrió un error inesperado"),
     ];

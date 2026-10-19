@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -13,6 +13,11 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Credenciales de las pruebas con PostgreSQL real: el archivo local (ignorado por Git) de las pruebas de Datos. Nunca se versiona. -->
+    <Content Include="../Servidor.Datos.Tests/appsettings.Local.json" Condition="Exists('../Servidor.Datos.Tests/appsettings.Local.json')" Link="appsettings.Pruebas.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,6 +1,7 @@
 namespace Compartido.Contratos;
 
-public sealed record LicenciaDto(TipoLicencia Tipo, string Valor);
+/// <summary>El tipo es el que informó NuGet; <c>null</c> = desconocido (nunca se deduce del texto).</summary>
+public sealed record LicenciaDto(TipoLicencia? Tipo, string Valor);
 
 /// <summary>Detalle de deprecación publicado por NuGet. Es evidencia publicada, no prueba de falta de soporte.</summary>
 public sealed record DeprecacionDto(
