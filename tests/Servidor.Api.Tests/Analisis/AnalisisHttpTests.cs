@@ -330,17 +330,6 @@ public sealed class AnalisisHttpTests : IClassFixture<BaseDeDatosApi>, IDisposab
     }
 
     [Fact]
-    public async Task El_pdf_no_esta_en_esta_entrega_la_ruta_no_existe_y_no_se_simula_una_descarga()
-    {
-        var dto = await AnalizarOk(Csproj("net8.0", (Unico("Ejemplo.O"), "1.0.0")));
-
-        var respuesta = await _http.GetAsync($"/api/analisis/{dto.Id}/pdf");
-
-        await VerificarProblema(respuesta, HttpStatusCode.NotFound, CodigosError.RecursoNoEncontrado);
-        Assert.NotEqual("application/pdf", respuesta.Content.Headers.ContentType?.MediaType);
-    }
-
-    [Fact]
     public async Task Las_respuestas_de_la_api_no_se_guardan_en_cache_ni_permiten_adivinar_el_tipo_ni_envian_referer()
     {
         var dto = await AnalizarOk(Csproj("net8.0", (Unico("Ejemplo.P"), "1.0.0")));

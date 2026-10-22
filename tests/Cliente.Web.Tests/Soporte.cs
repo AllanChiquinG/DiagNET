@@ -50,6 +50,15 @@ internal sealed class FakeNavegador : IServicioNavegador
 
     public Task<string> DireccionActualAsync() => Task.FromResult(Direccion);
 
+    public bool DescargaFunciona { get; set; } = true;
+    public List<(string Nombre, byte[] Contenido, string Tipo)> Descargas { get; } = [];
+
+    public Task<bool> DescargarArchivoAsync(string nombre, byte[] contenido, string tipo)
+    {
+        if (DescargaFunciona) Descargas.Add((nombre, contenido, tipo));
+        return Task.FromResult(DescargaFunciona);
+    }
+
     public Task EnfocarAsync(ElementReference elemento) => Task.CompletedTask;
 
     public Task AbrirPanelAsync(ElementReference panel, string? selectorDisparador, Func<Task> alCerrar)
@@ -98,6 +107,15 @@ internal static class Respuestas
     {
         Content = new StringContent(JsonSerializer.Serialize(new ProblemaDto(null, titulo, (int)estado, detalle, null, codigo, referencia), Web), Encoding.UTF8, "application/problem+json"),
     };
+
+    /// <summary>Respuesta de descarga del PDF (bytes identificados de prueba, no un PDF real: la interfaz solo los entrega al navegador).</summary>
+    public static HttpResponseMessage Pdf(byte[] bytes, string nombre = "DiagNET_Mi_20261005.pdf")
+    {
+        var r = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) };
+        r.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+        r.Content.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("attachment") { FileName = nombre };
+        return r;
+    }
 
     public static HttpResponseMessage Html(HttpStatusCode estado) => new(estado) { Content = new StringContent("<html>Bad gateway</html>", Encoding.UTF8, "text/html") };
 

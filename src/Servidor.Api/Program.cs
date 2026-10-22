@@ -53,11 +53,19 @@ builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     o.OnRejected = async (contexto, _) =>
-        await ManejoErrores.Problema(CodigosError.DemasiadasSolicitudes, "Hay demasiados análisis en curso. Inténtalo de nuevo en unos segundos.")
+        await ManejoErrores.Problema(CodigosError.DemasiadasSolicitudes,
+                contexto.HttpContext.Request.Path.Value?.EndsWith("/pdf", StringComparison.Ordinal) == true
+                    ? "Hay demasiados PDF generándose a la vez. Inténtalo de nuevo en unos segundos."
+                    : "Hay demasiados análisis en curso. Inténtalo de nuevo en unos segundos.")
             .ExecuteAsync(contexto.HttpContext);
     o.AddConcurrencyLimiter(AnalisisEndpoints.PoliticaConcurrencia, c =>
     {
         c.PermitLimit = Math.Max(1, analisisApi.MaxAnalisisSimultaneos);
+        c.QueueLimit = 0;
+    });
+    o.AddConcurrencyLimiter(AnalisisEndpoints.PoliticaReportes, c =>
+    {
+        c.PermitLimit = Math.Max(1, analisisApi.MaxReportesSimultaneos);
         c.QueueLimit = 0;
     });
 });

@@ -4,6 +4,7 @@ using Servidor.Api.Mapeo;
 using Servidor.Negocio.Dominio;
 using Servidor.Negocio.Lectura;
 using Servidor.Negocio.Orquestacion;
+using Servidor.Negocio.Reportes;
 
 namespace Servidor.Api.Endpoints;
 
@@ -12,17 +13,19 @@ internal sealed class AnalisisLog;
 
 /// <summary>
 /// Endpoints de análisis (E8). Solo <c>POST</c> consulta NuGet y recalcula (y siempre crea un análisis NUEVO); los <c>GET</c> de detalle e historial leen el snapshot
-/// guardado y no conocen el cliente de NuGet ni los motores: la reapertura no hace llamadas de red. El PDF NO está en esta entrega (E10): su ruta no existe.
+/// guardado y no conocen el cliente de NuGet ni los motores: la reapertura no hace llamadas de red. El PDF (E10) también se genera solo desde el snapshot.
 /// </summary>
 public static class AnalisisEndpoints
 {
     public const string PoliticaConcurrencia = "analisis";
+    public const string PoliticaReportes = "reportes";
 
     public static RouteGroupBuilder MapAnalisis(this RouteGroupBuilder api)
     {
         api.MapPost("/analisis", CrearAsync).RequireRateLimiting(PoliticaConcurrencia).WithName("CrearAnalisis");
         api.MapGet("/analisis/{id}", ObtenerAsync).WithName("ObtenerAnalisis");
         api.MapGet("/analisis", ListarAsync).WithName("ListarAnalisis");
+        api.MapGet("/analisis/{id}/pdf", ObtenerPdfAsync).RequireRateLimiting(PoliticaReportes).WithName("ObtenerPdfAnalisis");
         return api;
     }
 
@@ -93,6 +96,37 @@ public static class AnalisisEndpoints
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             log.LogError(ex, "No se pudo leer un análisis. Referencia {Referencia}", http.TraceIdentifier);
+            return ManejoErrores.Problema(CodigosError.AlmacenamientoNoDisponible, "No se pudo leer el análisis. Inténtalo de nuevo en unos minutos.");
+        }
+    }
+
+    // ---------------------------------------------------------------- GET /api/analisis/{id}/pdf
+
+    /// <summary>
+    /// PDF bajo demanda (E10). Lee el snapshot guardado y lo dibuja: no consulta NuGet, no recalcula reglas y no guarda el archivo. Hereda las cabeceras de /api
+    /// (sin caché, sin referer) y la política de registros de E8: no se escribe el identificador ni la URL, solo la referencia de la solicitud.
+    /// </summary>
+    private static async Task<IResult> ObtenerPdfAsync(
+        string id, HttpContext http, ServicioReportes reportes, OpcionesConsultas consultas, ILogger<AnalisisLog> log, CancellationToken ct)
+    {
+        if (!Guid.TryParseExact(id, "D", out var guid))
+            return ManejoErrores.Problema(CodigosError.IdentificadorInvalido, "El identificador del análisis debe ser un UUID.");
+
+        try
+        {
+            var reporte = await reportes.GenerarAsync(guid, consultas.RetencionDias, ct);
+            return reporte is null
+                ? ManejoErrores.Problema(CodigosError.AnalisisNoEncontrado, "No existe un análisis con ese identificador o ya fue eliminado.")
+                : Results.File(reporte.Contenido, "application/pdf", reporte.NombreArchivo);
+        }
+        catch (ReporteNoGeneradoException ex)
+        {
+            log.LogError(ex.InnerException ?? ex, "No se pudo generar un PDF. Referencia {Referencia}", http.TraceIdentifier);
+            return ManejoErrores.Problema(CodigosError.PdfNoDisponible, "El resultado sigue guardado. Intenta descargar el PDF de nuevo en unos minutos.");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogError(ex, "No se pudo leer un análisis para el PDF. Referencia {Referencia}", http.TraceIdentifier);
             return ManejoErrores.Problema(CodigosError.AlmacenamientoNoDisponible, "No se pudo leer el análisis. Inténtalo de nuevo en unos minutos.");
         }
     }

@@ -334,20 +334,147 @@ public class ResultadoTests : PaginaBase
         Assert.Contains("Completo", cut.Find(".chips .badge").TextContent);
     }
 
-    [Fact]
-    public void Exportar_PDF_esta_inactivo_se_explica_y_no_simula_ninguna_descarga()
+    private static readonly byte[] BytesPdf = [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x37, 0x0A, 0x01, 0x02];
+
+    /// <summary>Abre el resultado con un servidor que responde al PDF con lo indicado (y al resto como siempre).</summary>
+    private IRenderedComponent<Resultado> AbrirConPdf(Func<HttpRequestMessage, HttpResponseMessage> alPdf, ResultadoAnalisisDto? dto = null)
     {
-        var cut = Abrir(Mixto());
+        dto ??= Mixto();
+        Servidor(s => s.RequestUri!.AbsolutePath == "/api/configuracion" ? Configuracion()
+            : s.RequestUri!.AbsolutePath.EndsWith("/pdf", StringComparison.Ordinal) ? alPdf(s) : Respuestas.Json(dto));
+        var cut = Render<Resultado>(p => p.Add(c => c.IdTexto, dto.Id.ToString()));
+        cut.WaitForState(() => cut.FindAll("table").Count > 0, TimeSpan.FromSeconds(3));
+        return cut;
+    }
 
-        var boton = cut.FindAll("button").First(b => b.TextContent.Trim() == "Exportar PDF");
-        Assert.Equal("true", boton.GetAttribute("aria-disabled"));
-        var nota = cut.Find("#" + boton.GetAttribute("aria-describedby"));
-        Assert.Contains("todavía no está disponible", nota.TextContent);
+    private static AngleSharp.Dom.IElement BotonPdf(IRenderedComponent<Resultado> cut) => cut.Find("button[data-accion='exportar-pdf']");
 
-        Assert.Throws<MissingEventHandlerException>(() => boton.Click());   // no tiene ninguna acción asociada: pulsarlo no hace nada
-        Assert.DoesNotContain(Http.Solicitudes, s => s.Url.Contains("pdf"));
-        Assert.Empty(Navegador.Copiados);
-        Assert.DoesNotContain("descarg", cut.Markup.Replace("descargas", ""), StringComparison.OrdinalIgnoreCase);
+    [Fact]
+    public void Exportar_PDF_descarga_el_archivo_real_con_el_nombre_del_servidor_pidiendo_solo_el_PDF_de_ese_analisis()
+    {
+        var cut = AbrirConPdf(_ => Respuestas.Pdf(BytesPdf));
+
+        Assert.Equal("Exportar PDF", BotonPdf(cut).TextContent.Trim());
+        Assert.Null(BotonPdf(cut).GetAttribute("aria-disabled"));
+        BotonPdf(cut).Click();
+        cut.WaitForState(() => Navegador.Descargas.Count == 1, TimeSpan.FromSeconds(3));
+
+        var (nombre, contenido, tipo) = Assert.Single(Navegador.Descargas);
+        Assert.Equal(("DiagNET_Mi_20261005.pdf", "application/pdf"), (nombre, tipo));
+        Assert.Equal(BytesPdf, contenido);
+        Assert.Contains(Http.Solicitudes, s => s == ("GET", $"/api/analisis/{Id(1)}/pdf"));
+        Assert.DoesNotContain(Http.Solicitudes, s => s.Metodo == "POST");                       // exportar nunca crea ni recalcula un análisis
+        cut.WaitForAssertion(() => Assert.Contains("PDF descargado: DiagNET_Mi_20261005.pdf", cut.Find("[role='status']").TextContent));
+        Assert.Empty(cut.FindAll("[data-error='pdf']"));
+        Assert.Equal(4, cut.FindAll("tbody tr.fila").Count);                                      // el resultado sigue en pantalla
+    }
+
+    [Fact]
+    public void El_texto_junto_al_boton_explica_que_el_PDF_sale_del_resultado_guardado()
+    {
+        var cut = AbrirConPdf(_ => Respuestas.Pdf(BytesPdf));
+
+        var nota = cut.Find("#" + BotonPdf(cut).GetAttribute("aria-describedby"));
+        Assert.Contains("desde este resultado guardado", nota.TextContent);
+        Assert.Contains("sin volver a consultar NuGet", nota.TextContent);
+        Assert.Contains("UTC", nota.TextContent);
+    }
+
+    [Fact]
+    public void Mientras_se_genera_el_PDF_el_boton_avisa_y_no_repite_la_solicitud()
+    {
+        var cut = AbrirConPdf(_ => Respuestas.Pdf(BytesPdf));
+        Http.Bloqueo = new TaskCompletionSource();
+
+        BotonPdf(cut).Click();
+        cut.WaitForState(() => BotonPdf(cut).TextContent.Contains("Generando"), TimeSpan.FromSeconds(3));
+        Assert.Equal("true", BotonPdf(cut).GetAttribute("aria-disabled"));
+        BotonPdf(cut).Click();
+        BotonPdf(cut).Click();
+        Http.Bloqueo.SetResult();
+        cut.WaitForState(() => Navegador.Descargas.Count == 1, TimeSpan.FromSeconds(3));
+
+        Assert.Single(Http.Solicitudes, s => s.Url.EndsWith("/pdf", StringComparison.Ordinal));  // un solo pedido a pesar de tres clics
+        cut.WaitForAssertion(() => Assert.Equal("Exportar PDF", BotonPdf(cut).TextContent.Trim()));
+    }
+
+    [Fact]
+    public void Si_falla_la_generacion_se_muestra_el_error_con_referencia_el_resultado_se_conserva_y_se_puede_reintentar()
+    {
+        var falla = true;
+        var cut = AbrirConPdf(_ => falla
+            ? Respuestas.Problema(CodigosError.PdfNoDisponible, HttpStatusCode.InternalServerError, "No se pudo generar el PDF", referencia: "0HPDF123")
+            : Respuestas.Pdf(BytesPdf));
+
+        BotonPdf(cut).Click();
+        cut.WaitForState(() => cut.FindAll("[data-error='pdf']").Count == 1, TimeSpan.FromSeconds(3));
+
+        var alerta = cut.Find("[data-error='pdf']");
+        Assert.Equal("alert", alerta.GetAttribute("role"));
+        Assert.Contains("No se pudo descargar el PDF", alerta.TextContent);
+        Assert.Contains("El resultado sigue guardado y en pantalla", alerta.TextContent);
+        Assert.Contains("0HPDF123", alerta.TextContent);
+        Assert.DoesNotContain("System.", alerta.TextContent);
+        Assert.Empty(Navegador.Descargas);
+        Assert.Equal(4, cut.FindAll("tbody tr.fila").Count);                                      // la tabla, los contadores y el título siguen ahí
+        Assert.Equal("Mi.csproj", cut.Find("h1").TextContent);
+
+        falla = false;
+        alerta.QuerySelector("button")!.Click();
+        cut.WaitForState(() => Navegador.Descargas.Count == 1, TimeSpan.FromSeconds(3));
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-error='pdf']")));
+    }
+
+    [Theory]
+    [InlineData(404, "analisis_no_encontrado", "ya no está disponible")]
+    [InlineData(429, "demasiadas_solicitudes", "demasiados PDF")]
+    [InlineData(503, "almacenamiento_no_disponible", "Ocurrió un problema al generar el PDF")]
+    public void Cada_error_del_PDF_tiene_un_mensaje_propio_y_nunca_borra_el_resultado(int estado, string codigo, string texto)
+    {
+        var cut = AbrirConPdf(_ => Respuestas.Problema(codigo, (HttpStatusCode)estado, "Titulo del servidor", referencia: "0HREF"));
+
+        BotonPdf(cut).Click();
+        cut.WaitForState(() => cut.FindAll("[data-error='pdf']").Count == 1, TimeSpan.FromSeconds(3));
+
+        Assert.Contains(texto, cut.Find("[data-error='pdf']").TextContent);
+        Assert.Equal(4, cut.FindAll("tbody tr.fila").Count);
+    }
+
+    [Fact]
+    public void Sin_conexion_el_PDF_informa_que_no_se_pudo_contactar_y_conserva_el_resultado()
+    {
+        var cut = AbrirConPdf(_ => throw new HttpRequestException("sin red"));
+
+        BotonPdf(cut).Click();
+        cut.WaitForState(() => cut.FindAll("[data-error='pdf']").Count == 1, TimeSpan.FromSeconds(3));
+
+        Assert.Contains("No pudimos contactar con el servidor", cut.Find("[data-error='pdf']").TextContent);
+        Assert.Equal(4, cut.FindAll("tbody tr.fila").Count);
+    }
+
+    [Fact]
+    public void Una_respuesta_que_no_es_un_PDF_no_se_entrega_al_navegador()
+    {
+        var cut = AbrirConPdf(_ => Respuestas.Json(new { x = 1 }));
+
+        BotonPdf(cut).Click();
+        cut.WaitForState(() => cut.FindAll("[data-error='pdf']").Count == 1, TimeSpan.FromSeconds(3));
+
+        Assert.Contains("Ocurrió un problema al generar el PDF", cut.Find("[data-error='pdf']").TextContent);
+        Assert.Empty(Navegador.Descargas);
+    }
+
+    [Fact]
+    public void Si_el_navegador_bloquea_la_descarga_se_avisa_y_el_resultado_se_conserva()
+    {
+        Navegador.DescargaFunciona = false;
+        var cut = AbrirConPdf(_ => Respuestas.Pdf(BytesPdf));
+
+        BotonPdf(cut).Click();
+        cut.WaitForState(() => cut.FindAll("[data-error='pdf']").Count == 1, TimeSpan.FromSeconds(3));
+
+        Assert.Contains("no permitió iniciar la descarga", cut.Find("[data-error='pdf']").TextContent);
+        Assert.Equal(4, cut.FindAll("tbody tr.fila").Count);
     }
 
     [Fact]

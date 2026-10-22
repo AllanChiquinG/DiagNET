@@ -22,6 +22,9 @@ public interface IServicioNavegador
 
     Task<string> DireccionActualAsync();
 
+    /// <summary>Entrega un archivo al usuario (descarga del navegador). <c>false</c> si el navegador no pudo iniciar la descarga.</summary>
+    Task<bool> DescargarArchivoAsync(string nombre, byte[] contenido, string tipo);
+
     Task EnfocarAsync(ElementReference elemento);
 
     /// <summary>
@@ -57,6 +60,18 @@ public sealed class ServicioNavegador(IJSRuntime js) : IServicioNavegador, IAsyn
     public async Task<bool> CopiarAsync(string texto) => await js.InvokeAsync<bool>("DiagNET.copiar", texto);
 
     public async Task<string> DireccionActualAsync() => await js.InvokeAsync<string>("DiagNET.direccionActual");
+
+    public async Task<bool> DescargarArchivoAsync(string nombre, byte[] contenido, string tipo)
+    {
+        try
+        {
+            return await js.InvokeAsync<bool>("DiagNET.descargar", nombre, contenido, tipo);
+        }
+        catch (JSException)
+        {
+            return false;
+        }
+    }
 
     public async Task EnfocarAsync(ElementReference elemento) => await js.InvokeAsync<bool>("DiagNET.enfocar", elemento);
 

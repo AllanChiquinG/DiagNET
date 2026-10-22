@@ -60,15 +60,36 @@ else if (analisis is not null)
         <div class="acts">
             <a class="btn sec" href="">Nuevo análisis</a>
             <button type="button" class="btn sec" @onclick="CopiarEnlace">Copiar enlace</button>
-            @* El PDF corresponde a una entrega posterior: la acción se muestra con su explicación y no simula ninguna descarga. *@
-            <button type="button" class="btn pri sin-efecto" aria-disabled="true" aria-describedby="pdf-nota">Exportar PDF</button>
+            @* Descarga REAL: el servidor genera el PDF desde este mismo resultado guardado (sin consultar NuGet ni recalcular). Mientras se genera el botón no repite la solicitud. *@
+            <button type="button" class="btn pri @(pdf == EstadoPdf.Generando ? "sin-efecto" : "")" aria-describedby="pdf-nota" aria-disabled="@(pdf == EstadoPdf.Generando ? "true" : null)"
+                    @onclick="ExportarPdf" data-accion="exportar-pdf">@(pdf == EstadoPdf.Generando ? "Generando PDF…" : "Exportar PDF")</button>
         </div>
     </div>
-    <p id="pdf-nota" class="note nota-pdf">El reporte en PDF todavía no está disponible; se habilitará en una próxima versión. Por ahora puedes copiar el enlace de este resultado.</p>
-    <div class="vh" role="status" aria-live="polite">@mensajeEnlace</div>
+    <p id="pdf-nota" class="note nota-pdf">El PDF se genera desde este resultado guardado, sin volver a consultar NuGet. Las fechas del PDF están en UTC.</p>
+    <div class="vh" role="status" aria-live="polite">@mensajeEnlace @mensajePdf</div>
     @if (!string.IsNullOrEmpty(mensajeEnlace))
     {
         <div class="toast good" aria-hidden="true">@mensajeEnlace</div>
+    }
+    @if (pdf == EstadoPdf.Listo)
+    {
+        <div class="toast good" aria-hidden="true">@mensajePdf</div>
+    }
+    @if (pdf == EstadoPdf.Error && errorPdf is not null)
+    {
+        @* La falla del PDF NO borra nada: el resultado de abajo sigue en pantalla y guardado; solo se ofrece reintentar. *@
+        <div class="alert bad banner" role="alert" data-error="pdf">
+            <div>
+                <b>No se pudo descargar el PDF</b>
+                <div>@TextoErrorPdf</div>
+                <div>El resultado sigue guardado y en pantalla; no se perdió nada.</div>
+                @if (!string.IsNullOrWhiteSpace(errorPdf.Referencia))
+                {
+                    <div class="note">Código de referencia: <span class="ref">@errorPdf.Referencia</span></div>
+                }
+                <div class="btns"><button type="button" class="btn sec" @onclick="ExportarPdf">Reintentar</button></div>
+            </div>
+        </div>
     }
 
     @if (Avisos.HistorialNoGuardado && Avisos.IdSinGuardar == id)
@@ -122,6 +143,12 @@ else if (analisis is not null)
     private bool almacenamientoDisponible;
     private string? idCargado;
 
+    private enum EstadoPdf { Reposo, Generando, Listo, Error }
+
+    private EstadoPdf pdf = EstadoPdf.Reposo;
+    private ErrorApi? errorPdf;
+    private string? mensajePdf;
+
     [Parameter] public string IdTexto { get; set; } = "";
 
     private ResumenEstadosDto Resumen => ResumenEstadosDto.Calcular(analisis!.Dependencias);
@@ -146,6 +173,9 @@ else if (analisis is not null)
         errorApi = null;
         referenciaError = null;
         mensajeEnlace = null;
+        pdf = EstadoPdf.Reposo;
+        errorPdf = null;
+        mensajePdf = null;
 
         if (!Guid.TryParseExact(IdTexto, "D", out var guid))
         {
@@ -195,6 +225,46 @@ else if (analisis is not null)
     {
         var ok = await Navegador.CopiarAsync(await Navegador.DireccionActualAsync());
         mensajeEnlace = ok ? "Enlace copiado" : "No se pudo copiar el enlace. Cópialo desde la barra de direcciones.";
+    }
+
+    private string TextoErrorPdf => errorPdf switch
+    {
+        { Codigo: "descarga_bloqueada" } => "El navegador no permitió iniciar la descarga. Revisa los permisos de descarga del sitio e inténtalo de nuevo.",
+        { Status: 0 } => "No pudimos contactar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
+        { EsNoEncontrado: true } => "Este análisis ya no está disponible en el servidor, por lo que no se puede generar su PDF.",
+        { Status: 429 } => "Hay demasiados PDF generándose a la vez. Inténtalo de nuevo en unos segundos.",
+        _ => "Ocurrió un problema al generar el PDF. Inténtalo de nuevo en unos minutos.",
+    };
+
+    private async Task ExportarPdf()
+    {
+        if (analisis is null || pdf == EstadoPdf.Generando) return;
+        pdf = EstadoPdf.Generando;
+        errorPdf = null;
+        mensajePdf = "Generando el PDF…";
+        StateHasChanged();
+
+        var respuesta = await Api.DescargarPdfAsync(analisis.Id);
+        if (!respuesta.Ok)
+        {
+            errorPdf = respuesta.Error;
+            pdf = EstadoPdf.Error;
+            mensajePdf = "No se pudo descargar el PDF.";
+            return;
+        }
+
+        var archivo = respuesta.Valor!;
+        if (await Navegador.DescargarArchivoAsync(archivo.Nombre, archivo.Contenido, "application/pdf"))
+        {
+            pdf = EstadoPdf.Listo;
+            mensajePdf = $"PDF descargado: {archivo.Nombre}";
+        }
+        else
+        {
+            errorPdf = new ErrorApi("descarga_bloqueada", 0, "El navegador no inició la descarga", null, null);
+            pdf = EstadoPdf.Error;
+            mensajePdf = "No se pudo descargar el PDF.";
+        }
     }
 
     private async Task GuardarEnHistorial()

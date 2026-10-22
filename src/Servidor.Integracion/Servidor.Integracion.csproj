@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <InternalsVisibleTo Include="Servidor.Integracion.Tests" />
@@ -15,6 +15,15 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.13" />
     <PackageReference Include="NuGet.Frameworks" Version="7.9.0" />
     <PackageReference Include="NuGet.Versioning" Version="7.9.0" />
+    <!-- PDF (E10). VERSIÓN FIJADA A 6.2.4 (licencia MIT). Desde la 6.5.0 y la 7.0 el proyecto cambió a AGPL-3.0: NO actualizar sin una decisión expresa del propietario. -->
+    <PackageReference Include="PDFsharp-MigraDoc" Version="[6.2.4]" />
+    <!-- Dependencia transitiva de PDFsharp con avisos de seguridad en la 8.0.1: se sube a la versión de servicio vigente (DiagNET no firma ni cifra PDFs). -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Fuente Liberation Sans 2.1.5 (SIL Open Font License 1.1), incrustada para que el PDF no dependa de las fuentes del sistema operativo. -->
+    <EmbeddedResource Include="Pdf\Fuentes\*.ttf" LogicalName="Fuentes.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -49,6 +49,24 @@ async function copiar(texto) {
     }
 }
 
+// Entrega un archivo recibido de la API como descarga del navegador. Devuelve false si el navegador no pudo iniciarla.
+function descargar(nombre, contenido, tipo) {
+    try {
+        const url = URL.createObjectURL(new Blob([contenido], { type: tipo }));
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = nombre;
+        enlace.style.display = 'none';
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 function enfocar(elemento) {
     if (elemento instanceof Node && document.contains(elemento)) {
         elemento.focus({ preventScroll: false });
@@ -116,4 +134,4 @@ function cerrarPanel() {
     if (destino instanceof Node && document.contains(destino)) destino.focus();
 }
 
-window.DiagNET = { almacenamientoDisponible, leer, escribir, copiar, enfocar, direccionActual, abrirPanel, cerrarPanel };
+window.DiagNET = { almacenamientoDisponible, leer, escribir, copiar, descargar, enfocar, direccionActual, abrirPanel, cerrarPanel };

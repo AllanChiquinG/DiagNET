@@ -2,16 +2,18 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Servidor.Api.Endpoints;
 using Servidor.Integracion;
 using Servidor.Integracion.NuGet;
+using Servidor.Integracion.Pdf;
 using Servidor.Negocio.Dominio;
 using Servidor.Negocio.Nuget;
 using Servidor.Negocio.Orquestacion;
 using Servidor.Negocio.Recomendaciones;
+using Servidor.Negocio.Reportes;
 using Servidor.Negocio.Reglas;
 
 namespace Servidor.Api.Configuracion;
 
 /// <summary>
-/// Cablea la API con los motores REALES: gateway de NuGet (E4), servicio de metadatos y orquestación (E5), diagnóstico (E6), recomendaciones (E7) y repositorios (E3).
+/// Cablea la API con los motores REALES: gateway de NuGet (E4), servicio de metadatos y orquestación (E5), diagnóstico (E6), recomendaciones (E7), repositorios (E3) y reporte PDF (E10).
 /// Aquí no se registra ningún sustituto de pruebas: los dobles viven solo en los proyectos de pruebas.
 /// </summary>
 public static class RegistroAnalisis
@@ -38,6 +40,8 @@ public static class RegistroAnalisis
         servicios.AddSingleton(sp => new OrquestadorAnalisis(
             sp.GetRequiredService<Servidor.Negocio.Lectura.ILectorProyecto>(), sp.GetRequiredService<ServicioMetadatos>(), sp.GetRequiredService<IMotorDiagnostico>(),
             sp.GetRequiredService<IMotorRecomendacion>(), sp.GetRequiredService<IAnalisisRepositorio>(), sp.GetRequiredService<TimeProvider>(), orquestacion));
+        servicios.AddSingleton<IGeneradorPdf, GeneradorPdf>();
+        servicios.AddSingleton(sp => new ServicioReportes(sp.GetRequiredService<IAnalisisRepositorio>(), sp.GetRequiredService<IGeneradorPdf>(), sp.GetRequiredService<TimeProvider>()));
         return servicios;
     }
 
@@ -61,6 +65,9 @@ public static class RegistroAnalisis
 public sealed class OpcionesAnalisisApi
 {
     public int MaxAnalisisSimultaneos { get; set; } = 8;
+
+    /// <summary>PDF simultáneos: dibujar un reporte usa CPU y memoria; el excedente recibe 429 en lugar de encolarse.</summary>
+    public int MaxReportesSimultaneos { get; set; } = 4;
 }
 
 /// <summary>Repositorio que siempre falla: representa «no hay base de datos configurada».</summary>

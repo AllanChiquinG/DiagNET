@@ -33,6 +33,9 @@ public sealed record Resultado<T>(T? Valor, ErrorApi? Error)
 /// <param name="Error">El último error de un lote fallido, si lo hubo.</param>
 public sealed record ResultadoHistorial(IReadOnlyList<ResumenAnalisisDto> Encontrados, IReadOnlyList<Guid> NoDevueltos, IReadOnlyList<Guid> SinConsultar, ErrorApi? Error);
 
+/// <summary>Archivo recibido de la API (el PDF del reporte): nombre sugerido por el servidor y bytes.</summary>
+public sealed record ArchivoDescargado(string Nombre, byte[] Contenido);
+
 /// <summary>Único punto por el que la interfaz habla con la API real. No calcula nada: muestra lo que la API devuelve.</summary>
 public sealed class ClienteApi(HttpClient http)
 {
@@ -61,6 +64,28 @@ public sealed class ClienteApi(HttpClient http)
 
     public async Task<Resultado<ResultadoAnalisisDto>> ObtenerAnalisisAsync(Guid id, CancellationToken ct = default) =>
         await GetAsync<ResultadoAnalisisDto>($"api/analisis/{id:D}", ct);
+
+    /// <summary>Descarga el PDF del análisis. El servidor lo genera desde el resultado guardado (no consulta NuGet ni recalcula); aquí solo se recibe.</summary>
+    public async Task<Resultado<ArchivoDescargado>> DescargarPdfAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            using var respuesta = await http.GetAsync($"api/analisis/{id:D}/pdf", ct);
+            if (!respuesta.IsSuccessStatusCode) return Resultado<ArchivoDescargado>.Falla(await ErrorDeAsync(respuesta, ct));
+
+            if (!string.Equals(respuesta.Content.Headers.ContentType?.MediaType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+                return Resultado<ArchivoDescargado>.Falla(new ErrorApi(ErrorApi.RespuestaInesperada, (int)respuesta.StatusCode, "Respuesta inesperada del servidor", null, null));
+
+            var contenido = await respuesta.Content.ReadAsByteArrayAsync(ct);
+            var disposicion = respuesta.Content.Headers.ContentDisposition;
+            var nombre = (disposicion?.FileNameStar ?? disposicion?.FileName)?.Trim('"');
+            return Resultado<ArchivoDescargado>.Exito(new ArchivoDescargado(string.IsNullOrWhiteSpace(nombre) ? "DiagNET.pdf" : nombre, contenido));
+        }
+        catch (HttpRequestException)
+        {
+            return Resultado<ArchivoDescargado>.Falla(SinRespuesta());
+        }
+    }
 
     /// <summary>Consulta el historial en lotes de hasta 50 identificadores. Un lote fallido no pierde los demás ni borra identificadores.</summary>
     public async Task<ResultadoHistorial> ListarAsync(IReadOnlyList<Guid> ids, CancellationToken ct = default)
@@ -120,7 +145,12 @@ public sealed class ClienteApi(HttpClient http)
             }
         }
 
-        // Error de la API: Problem Details con «codigo» y «referencia». Si no lo es (p. ej. una página HTML de un proxy), se conserva solo el estado HTTP.
+        return Resultado<T>.Falla(await ErrorDeAsync(respuesta, ct));
+    }
+
+    /// <summary>Error de la API: Problem Details con «codigo» y «referencia». Si no lo es (p. ej. una página HTML de un proxy), se conserva solo el estado HTTP.</summary>
+    private static async Task<ErrorApi> ErrorDeAsync(HttpResponseMessage respuesta, CancellationToken ct)
+    {
         ProblemaDto? problema = null;
         try
         {
@@ -132,8 +162,7 @@ public sealed class ClienteApi(HttpClient http)
         }
 
         var status = (int)respuesta.StatusCode;
-        return Resultado<T>.Falla(new ErrorApi(
-            problema?.Codigo ?? $"http_{status}", status, problema?.Title ?? "El servidor respondió con un error", problema?.Detail, problema?.Referencia));
+        return new ErrorApi(problema?.Codigo ?? $"http_{status}", status, problema?.Title ?? "El servidor respondió con un error", problema?.Detail, problema?.Referencia);
     }
 
     private static ErrorApi SinRespuesta() =>

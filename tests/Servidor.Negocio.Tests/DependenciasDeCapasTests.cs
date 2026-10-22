@@ -28,6 +28,9 @@ public class DependenciasDeCapasTests
     [InlineData("Cliente.Web")]
     [InlineData("Microsoft.EntityFrameworkCore")]
     [InlineData("Microsoft.AspNetCore.App")]
+    [InlineData("PdfSharp")]                          // la biblioteca PDF vive solo en Integración, detrás de IGeneradorPdf
+    [InlineData("MigraDoc.DocumentObjectModel")]
+    [InlineData("MigraDoc.Rendering")]
     public void Negocio_no_referencia_capas_externas(string prohibido)
     {
         Assert.DoesNotContain(prohibido, ReferenciasDeNegocio());
