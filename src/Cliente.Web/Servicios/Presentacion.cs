@@ -81,6 +81,13 @@ public static class Presentacion
         _ => "archivo",
     };
 
+    /// <summary>
+    /// Plazo de conservación SIN prometer lo que no ocurre: la eliminación automática solo se menciona si está activada en el servidor.
+    /// </summary>
+    public static string Conservacion(int dias, bool purgaActiva) => purgaActiva
+        ? $"Se conserva {dias} días y luego se elimina automáticamente."
+        : $"Plazo de conservación previsto: {dias} días. La eliminación automática todavía no está activada, por lo que el análisis puede seguir disponible después de ese plazo.";
+
     /// <summary>«5 oct 2026, 15:42» en la hora local del navegador. Formato propio para no depender de los datos de cultura del navegador.</summary>
     public static string Fecha(DateTimeOffset fecha)
     {

@@ -5,6 +5,8 @@ using System.Threading.RateLimiting;
 using Servidor.Api.Configuracion;
 using Servidor.Api.Endpoints;
 using Servidor.Api.Errores;
+using Servidor.Api.Operacion;
+using Microsoft.AspNetCore.HttpOverrides;
 using Servidor.Datos;
 using Servidor.Negocio.Lectura;
 
@@ -21,6 +23,9 @@ builder.Services.AddManejoErrores();
 // (ASP.NET, enrutamiento, HttpClient hacia NuGet, EF/Npgsql) quedan en Warning COMO MÍNIMO por código, sin depender de appsettings.json.
 foreach (var categoria in new[] { "Microsoft.AspNetCore", "System.Net.Http", "Microsoft.EntityFrameworkCore", "Npgsql" })
     builder.Logging.AddFilter(categoria, LogLevel.Warning);
+
+// En los comandos de mantenimiento la salida es la del comando: EF registraría como «fail» la consulta normal de un historial de migraciones aún inexistente.
+if (Comandos.EsComando(args)) builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.None);
 
 // Persistencia (E3): se registra si hay cadena de conexión. Las migraciones NO se aplican al arrancar (paso controlado: dotnet ef database update).
 if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString(RegistroDatos.NombreCadenaConexion)))
@@ -78,14 +83,26 @@ builder.Services.Configure<FormOptions>(f =>
     f.MultipartBodyLengthLimit = http.TamanoMaximoCuerpoBytes + 1024 * 1024; // Kestrel corta primero
 });
 
+// Seguridad de transporte y proxy (E11): HTTPS exigido por defecto fuera de Desarrollo; cabeceras reenviadas solo de redes configuradas.
+var seguridad = builder.Configuration.GetSection("Seguridad").Get<OpcionesSeguridad>() ?? new OpcionesSeguridad();
+if (seguridad.ReenviarCabeceras) builder.Services.Configure<ForwardedHeadersOptions>(o => CopiarOpciones(seguridad.CrearCabecerasReenviadas(), o));
+
 var app = builder.Build();
+
+// Operaciones de mantenimiento (migrar, estado, purgar) con la misma configuración, sin levantar el servidor web.
+if (Comandos.EsComando(args))
+{
+    Console.OutputEncoding = System.Text.Encoding.UTF8;   // tildes correctas también al redirigir la salida a un archivo
+    return await Comandos.EjecutarAsync(app.Services, args, Console.Out, Console.Error);
+}
+
+if (seguridad.ReenviarCabeceras) app.UseForwardedHeaders();
 
 app.UseManejoErrores();
 app.UseCabecerasApi();
 
-if (!app.Environment.IsDevelopment())
+if (seguridad.ExigirHttpsEfectivo(app.Environment.IsDevelopment()))
 {
-    // Producción: solo HTTPS (el proxy inverso de E11 debe reenviar el esquema).
     app.UseHsts();
     app.UseHttpsRedirection();
 }
@@ -109,6 +126,15 @@ app.Map("/api/{**resto}", () => ManejoErrores.Problema(CodigosError.RecursoNoEnc
 app.MapFallbackToFile("index.html");
 
 app.Run();
+return 0;
+
+static void CopiarOpciones(ForwardedHeadersOptions origen, ForwardedHeadersOptions destino)
+{
+    destino.ForwardedHeaders = origen.ForwardedHeaders;
+    destino.ForwardLimit = origen.ForwardLimit;
+    destino.KnownIPNetworks.Clear();
+    foreach (var red in origen.KnownIPNetworks) destino.KnownIPNetworks.Add(red);   // loopback (por defecto) + solo las redes configuradas
+}
 
 /// <summary>Expuesta para que las pruebas de integración usen WebApplicationFactory.</summary>
 public partial class Program;

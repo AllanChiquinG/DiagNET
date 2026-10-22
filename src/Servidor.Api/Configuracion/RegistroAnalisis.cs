@@ -5,6 +5,7 @@ using Servidor.Integracion.NuGet;
 using Servidor.Integracion.Pdf;
 using Servidor.Negocio.Dominio;
 using Servidor.Negocio.Nuget;
+using Servidor.Negocio.Operacion;
 using Servidor.Negocio.Orquestacion;
 using Servidor.Negocio.Recomendaciones;
 using Servidor.Negocio.Reportes;
@@ -40,8 +41,25 @@ public static class RegistroAnalisis
         servicios.AddSingleton(sp => new OrquestadorAnalisis(
             sp.GetRequiredService<Servidor.Negocio.Lectura.ILectorProyecto>(), sp.GetRequiredService<ServicioMetadatos>(), sp.GetRequiredService<IMotorDiagnostico>(),
             sp.GetRequiredService<IMotorRecomendacion>(), sp.GetRequiredService<IAnalisisRepositorio>(), sp.GetRequiredService<TimeProvider>(), orquestacion));
+        servicios.AddOperacion(configuracion, consultas);
         servicios.AddSingleton<IGeneradorPdf, GeneradorPdf>();
         servicios.AddSingleton(sp => new ServicioReportes(sp.GetRequiredService<IAnalisisRepositorio>(), sp.GetRequiredService<IGeneradorPdf>(), sp.GetRequiredService<TimeProvider>()));
+        return servicios;
+    }
+
+    /// <summary>
+    /// Purga (E11): los plazos son PROPUESTAS configurables y la purga programada está DESACTIVADA por defecto. La retención de análisis es la misma cifra que muestra la interfaz
+    /// (<c>Historial:RetencionDias</c>): una sola fuente, para que lo que se promete al usuario sea lo que se aplica.
+    /// </summary>
+    public static IServiceCollection AddOperacion(this IServiceCollection servicios, IConfiguration configuracion, OpcionesConsultas consultas)
+    {
+        var purga = Enlazar(configuracion, "Purga", new OpcionesPurga());
+        purga.RetencionAnalisisDias = consultas.RetencionDias;
+        servicios.AddSingleton(purga);
+        servicios.AddSingleton(sp => new ServicioPurga(
+            sp.GetRequiredService<IAnalisisRepositorio>(), sp.GetRequiredService<IMetadatoRepositorio>(), sp.GetRequiredService<IContadorPurga>(),
+            sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<OpcionesPurga>()));
+        servicios.AddHostedService<Servidor.Api.Operacion.PurgaProgramada>();
         return servicios;
     }
 
@@ -49,6 +67,8 @@ public static class RegistroAnalisis
     public static IServiceCollection AddAlmacenamientoNoConfigurado(this IServiceCollection servicios)
     {
         servicios.AddSingleton<AlmacenamientoNoConfigurado>();
+        servicios.AddSingleton<IContadorPurga>(sp => sp.GetRequiredService<AlmacenamientoNoConfigurado>());
+        servicios.AddSingleton<IVerificadorBase>(sp => sp.GetRequiredService<AlmacenamientoNoConfigurado>());
         servicios.AddSingleton<IAnalisisRepositorio>(sp => sp.GetRequiredService<AlmacenamientoNoConfigurado>());
         servicios.AddSingleton<IMetadatoRepositorio>(sp => sp.GetRequiredService<AlmacenamientoNoConfigurado>());
         return servicios;
@@ -71,11 +91,15 @@ public sealed class OpcionesAnalisisApi
 }
 
 /// <summary>Repositorio que siempre falla: representa «no hay base de datos configurada».</summary>
-internal sealed class AlmacenamientoNoConfigurado : IAnalisisRepositorio, IMetadatoRepositorio
+internal sealed class AlmacenamientoNoConfigurado : IAnalisisRepositorio, IMetadatoRepositorio, IContadorPurga, IVerificadorBase
 {
     private static InvalidOperationException Falla() =>
         new("No hay una cadena de conexión «DiagNet» configurada (appsettings.Local.json o variable de entorno ConnectionStrings__DiagNet).");
 
+    public Task<EstadoBaseDatos> ComprobarAsync(CancellationToken ct = default) => Task.FromResult(new EstadoBaseDatos(false, false, 0));
+    public Task<int> ContarAnalisisAnterioresAsync(DateTimeOffset limite, CancellationToken ct = default) => throw Falla();
+    public Task<int> ContarMetadatosAnterioresAsync(DateTimeOffset limite, CancellationToken ct = default) => throw Falla();
+    public Task<int> ContarSeleccionesAnterioresAsync(DateTimeOffset limite, CancellationToken ct = default) => throw Falla();
     public Task GuardarAsync(Analisis analisis, CancellationToken ct = default) => throw Falla();
     public Task<Analisis?> ObtenerAsync(Guid id, CancellationToken ct = default) => throw Falla();
     public Task<Pagina<ResumenAnalisis>> ListarAsync(int numeroPagina, int tamanoPagina, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw Falla();

@@ -144,7 +144,9 @@ public sealed class GeneradorPdf : IGeneradorPdf
         Fila(id, "Zona horaria de las fechas", "UTC (hora universal). La aplicación web muestra las fechas en la hora local de tu navegador, por eso pueden diferir en horas del mismo instante.");
         Fila(id, "Estado del análisis", e.EstadoAnalisis);
         Fila(id, "Versión de las reglas", Partir(e.VersionReglas, AnchoUtilMm - 44));
-        Fila(id, "Conservación", $"El análisis se conserva {e.RetencionDias} días; cualquier persona con su enlace puede abrirlo. Este PDF no se guarda: se genera de nuevo desde el resultado guardado.");
+        Fila(id, "Conservación", e.PurgaAutomaticaActiva
+            ? $"El análisis se conserva {e.RetencionDias} días y luego se elimina automáticamente; cualquier persona con su enlace puede abrirlo. Este PDF no se guarda: se genera de nuevo desde el resultado guardado."
+            : $"Plazo de conservación previsto: {e.RetencionDias} días. La eliminación automática todavía no está activada, por lo que el análisis puede seguir disponible después de ese plazo; cualquier persona con su enlace puede abrirlo. Este PDF no se guarda: se genera de nuevo desde el resultado guardado.");
 
         Titulo2(s, "Resumen");
         var r = m.Resumen;

@@ -12,6 +12,12 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.13" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Los secretos locales NUNCA viajan en la publicación: se entregan por variables de entorno o por un archivo aparte junto al despliegue. -->
+    <Content Remove="appsettings.Local.json" />
+    <None Include="appsettings.Local.json" Condition="Exists('appsettings.Local.json')" CopyToPublishDirectory="Never" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>

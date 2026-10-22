@@ -107,14 +107,14 @@ public static class AnalisisEndpoints
     /// (sin caché, sin referer) y la política de registros de E8: no se escribe el identificador ni la URL, solo la referencia de la solicitud.
     /// </summary>
     private static async Task<IResult> ObtenerPdfAsync(
-        string id, HttpContext http, ServicioReportes reportes, OpcionesConsultas consultas, ILogger<AnalisisLog> log, CancellationToken ct)
+        string id, HttpContext http, ServicioReportes reportes, OpcionesConsultas consultas, Servidor.Negocio.Operacion.OpcionesPurga purga, ILogger<AnalisisLog> log, CancellationToken ct)
     {
         if (!Guid.TryParseExact(id, "D", out var guid))
             return ManejoErrores.Problema(CodigosError.IdentificadorInvalido, "El identificador del análisis debe ser un UUID.");
 
         try
         {
-            var reporte = await reportes.GenerarAsync(guid, consultas.RetencionDias, ct);
+            var reporte = await reportes.GenerarAsync(guid, consultas.RetencionDias, purga.Habilitada, ct);
             return reporte is null
                 ? ManejoErrores.Problema(CodigosError.AnalisisNoEncontrado, "No existe un análisis con ese identificador o ya fue eliminado.")
                 : Results.File(reporte.Contenido, "application/pdf", reporte.NombreArchivo);

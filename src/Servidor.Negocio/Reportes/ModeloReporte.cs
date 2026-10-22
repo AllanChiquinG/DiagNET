@@ -14,7 +14,8 @@ public sealed record EncabezadoReporte(
     string FechaGeneracion,
     string EstadoAnalisis,
     string VersionReglas,
-    int RetencionDias);
+    int RetencionDias,
+    bool PurgaAutomaticaActiva = false);
 
 public sealed record ResumenReporte(int Total, int Actualizadas, int Desactualizadas, int Incompatibles, int SinSoporteActivo, int NoDeterminadas);
 

@@ -18,7 +18,7 @@ public sealed record ReportePdf(byte[] Contenido, string NombreArchivo);
 public sealed class ServicioReportes(IAnalisisRepositorio repositorio, IGeneradorPdf generador, TimeProvider reloj)
 {
     /// <summary>Devuelve <c>null</c> si el análisis no existe o ya fue eliminado.</summary>
-    public async Task<ReportePdf?> GenerarAsync(Guid id, int retencionDias, CancellationToken ct = default)
+    public async Task<ReportePdf?> GenerarAsync(Guid id, int retencionDias, bool purgaAutomaticaActiva = false, CancellationToken ct = default)
     {
         var analisis = await repositorio.ObtenerAsync(id, ct);
         if (analisis is null) return null;
@@ -26,7 +26,7 @@ public sealed class ServicioReportes(IAnalisisRepositorio repositorio, IGenerado
         byte[] contenido;
         try
         {
-            var modelo = ConsolidadorReporte.Consolidar(analisis, retencionDias, reloj.GetUtcNow());
+            var modelo = ConsolidadorReporte.Consolidar(analisis, retencionDias, reloj.GetUtcNow(), purgaAutomaticaActiva);
             contenido = generador.Generar(modelo);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

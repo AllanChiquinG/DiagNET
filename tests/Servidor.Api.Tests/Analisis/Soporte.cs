@@ -31,7 +31,7 @@ public sealed class BaseDeDatosApi : IAsyncLifetime
     {
         _administracion = new NpgsqlConnectionStringBuilder(LeerCadenaDePruebas());
         await EjecutarAdminAsync($"CREATE DATABASE \"{NombreBase}\"");
-        CadenaConexion = new NpgsqlConnectionStringBuilder(_administracion.ConnectionString) { Database = NombreBase, Pooling = true, MaxPoolSize = 40 }.ConnectionString;
+        CadenaConexion = new NpgsqlConnectionStringBuilder(_administracion.ConnectionString) { Database = NombreBase, Pooling = true, MaxPoolSize = 25 }.ConnectionString;
 
         var servicios = new ServiceCollection().AddDatos(CadenaConexion).BuildServiceProvider();
         await using (servicios)

@@ -21,7 +21,7 @@ else if (estado == Estado.NoDisponible)
 {
     @* P8: análisis no disponible (enlace incorrecto, eliminado o caducado). El servidor no distingue las causas, y no se afirma ninguna. *@
     <MensajeError Titulo="Este análisis ya no está disponible"
-                  Parrafos="@(new[] { $"El enlace no es correcto, el análisis ya no existe o superó el plazo de conservación{(retencionDias is { } d ? $" ({d} días)" : "")} y se eliminó.", "Puedes hacer un análisis nuevo con el mismo archivo." })"
+                  Parrafos="@(new[] { purgaActiva ? $"El enlace no es correcto, el análisis ya no existe o superó el plazo de conservación{(retencionDias is { } d ? $" ({d} días)" : "")} y se eliminó." : "El enlace no es correcto o el análisis ya no existe en el servidor.", "Puedes hacer un análisis nuevo con el mismo archivo." })"
                   Referencia="@referenciaError">
         <a class="btn pri" href="">Nuevo análisis</a>
         <a class="btn sec" href="historial">Ver historial</a>
@@ -110,7 +110,7 @@ else if (analisis is not null)
 
     <p class="note">
         Resultado guardado el @Presentacion.Fecha(analisis.FechaAnalisis). Cada librería indica el origen y la fecha de sus datos. El resultado no cambia aunque NuGet publique nuevas versiones; para verlas, haz un nuevo análisis.
-        Se conserva @analisis.RetencionDias días. Cualquier persona con el enlace puede abrirlo; no es una cuenta privada.
+        @Presentacion.Conservacion(analisis.RetencionDias, purgaActiva) Cualquier persona con el enlace puede abrirlo; no es una cuenta privada.
         <span class="reglas">Reglas: <span class="mono">@analisis.VersionReglas</span></span>
     </p>
 
@@ -134,6 +134,7 @@ else if (analisis is not null)
     private ErrorApi? errorApi;
     private string? referenciaError;
     private int? retencionDias;
+    private bool purgaActiva;
     private EstadoDiagnostico? filtro;
     private bool mostrarTodas;
     private DependenciaAnalizadaDto? seleccion;
@@ -180,7 +181,9 @@ else if (analisis is not null)
         if (!Guid.TryParseExact(IdTexto, "D", out var guid))
         {
             id = null;
-            retencionDias = (await Configuracion.ObtenerAsync())?.RetencionDias;
+            var configuracion = await Configuracion.ObtenerAsync();
+            retencionDias = configuracion?.RetencionDias;
+            purgaActiva = configuracion?.PurgaAutomaticaActiva ?? false;
             estado = Estado.NoDisponible;
             return;
         }
@@ -195,6 +198,7 @@ else if (analisis is not null)
         {
             analisis = respuesta.Valor;
             retencionDias = analisis!.RetencionDias;
+            purgaActiva = (await Configuracion.ObtenerAsync())?.PurgaAutomaticaActiva ?? false;
             estado = Estado.Listo;
             return;
         }
@@ -202,7 +206,9 @@ else if (analisis is not null)
         errorApi = respuesta.Error;
         if (errorApi!.EsNoEncontrado)
         {
-            retencionDias = (await Configuracion.ObtenerAsync())?.RetencionDias;
+            var configuracion = await Configuracion.ObtenerAsync();
+            retencionDias = configuracion?.RetencionDias;
+            purgaActiva = configuracion?.PurgaAutomaticaActiva ?? false;
             estado = Estado.NoDisponible;
         }
         else

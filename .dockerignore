@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/TestResults/
+.git/
+.vs/
+mockups/
+tests/
+deploy/
+**/appsettings.Local.json
+**/*.Local.json
+*.dump
+.env
+**/.env

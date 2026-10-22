@@ -1,0 +1,44 @@
+# Proxy inverso de DiagNET (Caddy 2.11). NO verificado en este equipo (no había motor de Docker ni binario de Caddy): validar con
+#   docker run --rm -v ./Caddyfile:/etc/caddy/Caddyfile:ro -e DIAGNET_DOMINIO=localhost caddy:2.11.7 caddy validate --config /etc/caddy/Caddyfile
+# antes de usarlo.
+#
+# DIAGNET_DOMINIO = «localhost» (certificado interno de Caddy, solo para pruebas locales) o el dominio real (Caddy obtiene el certificado público automáticamente:
+# requiere un dominio apuntando al servidor y los puertos 80/443 abiertos; eso lo decide y autoriza el propietario).
+
+{$DIAGNET_DOMINIO:localhost} {
+	encode zstd gzip
+
+	# Mismo límite que la API (cuerpo de 2 MB: archivo de hasta 1 MB + formulario). Kestrel lo vuelve a comprobar.
+	request_body {
+		max_size 2MB
+	}
+
+	reverse_proxy app:8080 {
+		# Un análisis tiene presupuesto global de 120 s (consulta a NuGet) + persistencia: el proxy espera más que eso o cortaría un análisis legítimo (502 sin resultado).
+		# La interfaz espera hasta 5 minutos. 180 s deja margen sin colgar conexiones indefinidamente.
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 180s
+			read_timeout 180s
+			write_timeout 60s
+		}
+	}
+
+	# REGISTROS (garantía de E8: sin identificadores de análisis ni URL completas ni contenido). Las URL /api/analisis/{id} y ?ids=… llevan identificadores:
+	# se eliminan del registro de acceso, junto con las cabeceras y la dirección del cliente. Quedan método, estado, duración y tamaño.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri delete
+				request>headers delete
+				request>remote_ip delete
+				request>remote_port delete
+				request>client_ip delete
+				request>tls delete
+				resp_headers delete
+			}
+		}
+	}
+}

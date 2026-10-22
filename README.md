@@ -2,7 +2,7 @@
 
 Aplicación web en español que diagnostica las dependencias NuGet declaradas en un `.csproj` de .NET 8 o .NET 10.
 
-> **Estado:** E0–E10: solución base, contratos, lectura segura del `.csproj`, datos con PostgreSQL, integración con NuGet, orquestación, diagnóstico, recomendaciones, API de análisis, interfaz web (Blazor WebAssembly) y reporte PDF. Pendiente: instalación y defensa (E11–E12).
+> **Estado:** E0–E11: solución base, contratos, lectura segura del `.csproj`, datos con PostgreSQL, integración con NuGet, orquestación, diagnóstico, recomendaciones, API de análisis, interfaz web (Blazor WebAssembly), reporte PDF y operación (publicación Release, migraciones controladas, respaldo/restauración, purga preparada). Pendiente: aceptación y cierre académico (E12).
 
 ## Requisitos
 
@@ -69,6 +69,18 @@ curl -OJ http://localhost:5228/api/analisis/{id}/pdf
 - **Caracteres que la fuente no dibuja** (escrituras no latinas, emoji, controles): no se pierden ni se sustituyen en silencio; se escriben como `‹U+XXXX›` (su punto de código) y el reporte lo avisa al inicio y en las limitaciones.
 - **Errores:** `404 analisis_no_encontrado`, `400 identificador_invalido`, `500 pdf_no_disponible` (el resultado sigue guardado), `429 demasiadas_solicitudes` (máximo `Analisis:MaxReportesSimultaneos`, 4 por defecto) y `503 almacenamiento_no_disponible`. Lleva las mismas cabeceras y política de registros que el resto de `/api` (`no-store`, `nosniff`, `no-referrer`; sin identificadores ni URL en los registros).
 - **Terceros (licencias):** PDFsharp y MigraDoc **6.2.4, licencia MIT** (versión fijada con `[6.2.4]`: desde la 6.5.0 el proyecto pasó a AGPL-3.0, no actualizar sin una decisión expresa) y la fuente **Liberation Sans 2.1.5, SIL Open Font License 1.1**, incrustada sin modificar en `src/Servidor.Integracion/Pdf/Fuentes/` junto con su `LICENSE`. La biblioteca vive detrás de `IGeneradorPdf` y es sustituible. Los textos completos de las licencias están en [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) (verificado el 21/10/2026); antes de actualizar cualquiera de estos componentes hay que revisar de nuevo su licencia.
+
+## Operación (E11)
+
+Guía completa en [`docs/operacion.md`](docs/operacion.md): instalación limpia, arranque **desde los archivos publicados**, configuración externa sin secretos, comprobaciones de salud y disponibilidad, migraciones como paso controlado, respaldo y restauración en una base nueva y aislada, recuperación y la alternativa Docker + Caddy (preparada, no probada).
+
+```bash
+powershell -ExecutionPolicy Bypass -File deploy\local\publicar.ps1                  # Release → C:\Proyectos\DiagNET-publicadopp
+powershell -ExecutionPolicy Bypass -File deploy\local\iniciar_publicado.ps1 -Migrar  # migra (primera vez) y arranca en http://localhost:5228
+powershell -ExecutionPolicy Bypass -File deploy\localespaldar.ps1 -Destino D:\Respaldos\DiagNET
+```
+
+`GET /api/salud` (vitalidad) y `GET /api/salud/disponibilidad` (base y migraciones). La purga está **desactivada** por defecto (90 días de análisis y 30 de caché propuestos, pendientes de aprobación): `dotnet Servidor.Api.dll operacion purgar` solo simula.
 
 ## Leer un .csproj (E2)
 

@@ -507,18 +507,32 @@ public class ResultadoTests : PaginaBase
     }
 
     [Fact]
-    public void Un_analisis_que_ya_no_existe_dice_que_no_esta_disponible_con_la_retencion_real_y_sin_suponer_propietarios()
+    public void Un_analisis_que_ya_no_existe_dice_que_no_esta_disponible_sin_afirmar_una_eliminacion_por_antiguedad_si_la_purga_no_esta_activa()
     {
         Servidor(s => s.RequestUri!.AbsolutePath == "/api/configuracion" ? Configuracion() : Respuestas.Problema("analisis_no_encontrado", HttpStatusCode.NotFound, "No existe"));
 
         var cut = Render<Resultado>(p => p.Add(c => c.IdTexto, Id(9).ToString()));
 
         cut.WaitForAssertion(() => Assert.Contains("Este análisis ya no está disponible", cut.Find("h1").TextContent));
-        Assert.Contains("(90 días)", cut.Markup);
-        Assert.Contains("no existe", cut.Markup);
+        Assert.Contains("el análisis ya no existe en el servidor", cut.Markup);
+        Assert.DoesNotContain("(90 días)", cut.Markup);
+        Assert.DoesNotContain("se eliminó", cut.Markup);
         Assert.DoesNotContain("tuyo", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ajeno", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(cut.FindAll("a"), a => a.GetAttribute("href") == "historial");
+    }
+
+    [Fact]
+    public void Con_la_purga_activada_el_analisis_no_disponible_menciona_el_plazo_real()
+    {
+        Servidor(s => s.RequestUri!.AbsolutePath == "/api/configuracion" ? Respuestas.Json(Respuestas.Configuracion with { PurgaAutomaticaActiva = true }) : Respuestas.Problema("analisis_no_encontrado", HttpStatusCode.NotFound, "No existe"));
+
+        var cut = Render<Resultado>(p => p.Add(c => c.IdTexto, Id(9).ToString()));
+
+        cut.WaitForAssertion(() => Assert.Contains("Este análisis ya no está disponible", cut.Find("h1").TextContent));
+        Assert.Contains("(90 días)", cut.Markup);
+        Assert.Contains("se eliminó", cut.Markup);
+        Assert.DoesNotContain("tuyo", cut.Markup, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -567,16 +581,32 @@ public class ResultadoTests : PaginaBase
     }
 
     [Fact]
-    public void El_texto_de_conservacion_y_acceso_lee_la_retencion_del_resultado_y_no_promete_privacidad()
+    public void Mientras_la_purga_no_este_activada_el_texto_de_conservacion_no_promete_eliminacion_automatica()
     {
         var cut = Abrir(Muestras.Resultado([Muestras.Dependencia("Ejemplo.Uno")], retencion: 45, id: Id(1)));
 
         var nota = cut.Find("p.note:not(.nota-pdf)").TextContent;
 
-        Assert.Contains("Se conserva 45 días", nota);
+        Assert.Contains("Plazo de conservación previsto: 45 días", nota);
+        Assert.Contains("La eliminación automática todavía no está activada", nota);
+        Assert.DoesNotContain("se elimina automáticamente", nota);
         Assert.Contains("Cualquier persona con el enlace puede abrirlo; no es una cuenta privada.", nota);
         Assert.Contains("El resultado no cambia aunque NuGet publique nuevas versiones", nota);
         Assert.Contains("e6-1.1|ant=24m|agr=pes+e7-1.0", cut.Find(".reglas").TextContent);
+    }
+
+    [Fact]
+    public void Con_la_purga_activada_el_texto_si_informa_que_se_elimina_automaticamente()
+    {
+        var dto = Muestras.Resultado([Muestras.Dependencia("Ejemplo.Uno")], retencion: 45, id: Id(1));
+        Servidor(s => s.RequestUri!.AbsolutePath == "/api/configuracion" ? Respuestas.Json(Respuestas.Configuracion with { PurgaAutomaticaActiva = true }) : Respuestas.Json(dto));
+        var cut = Render<Resultado>(p => p.Add(c => c.IdTexto, dto.Id.ToString()));
+        cut.WaitForState(() => cut.FindAll("table").Count > 0, TimeSpan.FromSeconds(3));
+
+        var nota = cut.Find("p.note:not(.nota-pdf)").TextContent;
+
+        Assert.Contains("Se conserva 45 días y luego se elimina automáticamente.", nota);
+        Assert.DoesNotContain("todavía no está activada", nota);
     }
 
     [Fact]
@@ -624,6 +654,24 @@ public class HistorialTests : PaginaBase
         var pedidos = System.Web.HttpUtility.ParseQueryString(s.RequestUri.Query)["ids"]!.Split(',').Select(Guid.Parse).ToList();
         var lista = pedidos.Where(existe).Select(i => Muestras.Resumen(i, "Servidor-" + i.ToString()[..8], fecha: Muestras.Fecha.AddDays(-i.ToByteArray()[0]), total: 5)).ToList();
         return Respuestas.Json(new PaginaDto<ResumenAnalisisDto>(lista, 1, 50, lista.Count));
+    }
+
+    [Theory]
+    [InlineData(false, "Plazo de conservación previsto: 90 días", "todavía no está activada")]
+    [InlineData(true, "Se conserva 90 días y luego se elimina automáticamente.", null)]
+    public void El_historial_solo_promete_eliminacion_automatica_si_la_purga_esta_activada(bool activa, string esperado, string? tambien)
+    {
+        Guardar(Local(1, "A.csproj"));
+        Servidor(s => s.RequestUri!.AbsolutePath == "/api/configuracion"
+            ? Respuestas.Json(Respuestas.Configuracion with { PurgaAutomaticaActiva = activa })
+            : Devolver(s, _ => true));
+
+        var cut = Abrir();
+
+        var texto = cut.Find(".head").TextContent;
+        Assert.Contains(esperado, texto);
+        if (tambien is not null) Assert.Contains(tambien, texto);
+        if (!activa) Assert.DoesNotContain("se elimina automáticamente", texto);
     }
 
     [Fact]

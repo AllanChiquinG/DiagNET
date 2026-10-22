@@ -28,7 +28,7 @@ public static class ConsolidadorReporte
         "La licencia se muestra solo como información publicada por NuGet; no es asesoría legal. Las fechas del reporte están en UTC.",
     ];
 
-    public static ModeloReporte Consolidar(Analisis a, int retencionDias, DateTimeOffset generado)
+    public static ModeloReporte Consolidar(Analisis a, int retencionDias, DateTimeOffset generado, bool purgaAutomaticaActiva = false)
     {
         var resumen = new ResumenReporte(
             a.Dependencias.Count,
@@ -41,7 +41,7 @@ public static class ConsolidadorReporte
         return new ModeloReporte(
             new EncabezadoReporte(
                 a.NombreArchivo, a.Id, a.FrameworksDeclarados, a.FrameworksEvaluados, TextosReporte.Fecha(a.FechaAnalisis), TextosReporte.Fecha(generado),
-                TextosReporte.Texto(a.Estado), a.VersionReglas, retencionDias),
+                TextosReporte.Texto(a.Estado), a.VersionReglas, retencionDias, purgaAutomaticaActiva),
             resumen,
             a.Estado == EstadoAnalisis.Parcial,
             a.Advertencias.Where(w => w.Codigo != CodigoRecomendacionesIncompletas).Select(w => w.Mensaje).ToList(),

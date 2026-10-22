@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Servidor.Datos.Repositorios;
 using Servidor.Negocio.Dominio;
+using Servidor.Negocio.Operacion;
 
 namespace Servidor.Datos;
 
@@ -24,6 +25,9 @@ public static class RegistroDatos
         servicios.AddDbContextFactory<AppDbContext>(o => o.UseNpgsql(cadenaConexion));
         servicios.AddSingleton<IAnalisisRepositorio, AnalisisRepositorio>();
         servicios.AddSingleton<IMetadatoRepositorio, MetadatoRepositorio>();
+        servicios.AddSingleton<IContadorPurga, PurgaRepositorio>();
+        servicios.AddSingleton<IVerificadorBase>(sp => new VerificadorBase(sp.GetRequiredService<IDbContextFactory<AppDbContext>>()));
+        servicios.AddSingleton<MigradorBase>();
         return servicios;
     }
 }

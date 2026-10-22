@@ -22,13 +22,14 @@ public sealed class BaseDeDatosFixture : IAsyncLifetime
     public IDbContextFactory<AppDbContext> Fabrica => _servicios.GetRequiredService<IDbContextFactory<AppDbContext>>();
     public IAnalisisRepositorio Analisis => _servicios.GetRequiredService<IAnalisisRepositorio>();
     public IMetadatoRepositorio Metadatos => _servicios.GetRequiredService<IMetadatoRepositorio>();
+    public Servidor.Negocio.Operacion.IContadorPurga Contador => _servicios.GetRequiredService<Servidor.Negocio.Operacion.IContadorPurga>();
 
     public async Task InitializeAsync()
     {
         _administracion = new NpgsqlConnectionStringBuilder(LeerCadenaDePruebas());
         await EjecutarAdminAsync($"CREATE DATABASE \"{NombreBase}\"");
 
-        var cadena = new NpgsqlConnectionStringBuilder(_administracion.ConnectionString) { Database = NombreBase, Pooling = true, MaxPoolSize = 80 };
+        var cadena = new NpgsqlConnectionStringBuilder(_administracion.ConnectionString) { Database = NombreBase, Pooling = true, MaxPoolSize = 30 };
         CadenaConexion = cadena.ConnectionString;
         _servicios = Construir(CadenaConexion);
 

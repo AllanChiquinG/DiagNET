@@ -1,4 +1,4 @@
-<#
+﻿<#
   Crea la base NUEVA de DiagNET en el PostgreSQL local de Windows (sin Docker).
   - Lee las contraseñas de los archivos appsettings.Local.json (ignorados por Git); no las imprime.
   - psql te pedirá la contraseña del usuario "postgres" (superusuario) en este terminal; este script nunca la ve.

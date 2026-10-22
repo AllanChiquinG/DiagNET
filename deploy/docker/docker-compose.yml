@@ -1,0 +1,100 @@
+# DiagNET — alternativa con Docker Compose (aplicación + PostgreSQL con volumen + proxy Caddy). SEPARADA del entorno de desarrollo/demostración,
+# que usa el PostgreSQL local de Windows: este archivo NO lo sustituye ni lo toca.
+#
+# ESTADO: preparado y validado solo en sintaxis (docker compose config). NO se ha construido ni ejecutado en este equipo (el motor de Docker no estaba en marcha)
+# ni se ha probado en un servidor. No publica nada en Internet: por defecto el proxy escucha SOLO en 127.0.0.1.
+#
+# Uso (desde deploy/docker):
+#   copy .env.example .env     y edita los valores (el .env NO se versiona)
+#   docker compose build
+#   docker compose up -d        (la base se crea vacía; el servicio «migrar» aplica el esquema una vez y termina)
+# La base de datos NO tiene puertos publicados: solo la aplicación la alcanza, por la red interna.
+
+name: diagnet
+
+services:
+  db:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: diagnet
+      POSTGRES_USER: diagnet_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
+    volumes:
+      - datos-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U diagnet_app -d diagnet"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [interna]
+
+  # Paso CONTROLADO de migraciones: se ejecuta una vez, con bloqueo en la base, y la aplicación espera a que termine bien.
+  migrar:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    image: diagnet:e11
+    command: ["operacion", "migrar"]
+    restart: "no"
+    environment:
+      ConnectionStrings__DiagNet: Host=db;Port=5432;Database=diagnet;Username=diagnet_app;Password=${POSTGRES_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [interna]
+
+  app:
+    image: diagnet:e11
+    restart: unless-stopped
+    depends_on:
+      migrar:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__DiagNet: Host=db;Port=5432;Database=diagnet;Username=diagnet_app;Password=${POSTGRES_PASSWORD}
+      # Detrás del proxy: HTTPS exigido y esquema/dirección tomados de X-Forwarded-*, SOLO de la red interna del proxy.
+      Seguridad__ExigirHttps: "true"
+      Seguridad__ReenviarCabeceras: "true"
+      Seguridad__RedesConfiables__0: 172.28.0.0/24
+      AllowedHosts: ${DIAGNET_DOMINIO:-localhost}
+      # La purga sigue DESACTIVADA hasta que el propietario apruebe los plazos (ver docs/operacion.md).
+      Purga__Habilitada: "false"
+    healthcheck:
+      # La imagen de ASP.NET no trae curl: se usa bash con /dev/tcp contra la comprobación de disponibilidad (consulta la base; no consulta NuGet).
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/salud/disponibilidad HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    networks:
+      interna:
+        ipv4_address: 172.28.0.10
+
+  proxy:
+    image: caddy:2.11.7
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      DIAGNET_DOMINIO: ${DIAGNET_DOMINIO:-localhost}
+    ports:
+      # Por defecto SOLO en este equipo. Para publicar en un servidor propio se cambia DIAGNET_PUBLICAR_IP a 0.0.0.0 (decisión y autorización del propietario).
+      - "${DIAGNET_PUBLICAR_IP:-127.0.0.1}:80:80"
+      - "${DIAGNET_PUBLICAR_IP:-127.0.0.1}:443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - datos-caddy:/data
+      - config-caddy:/config
+    networks: [interna]
+
+volumes:
+  datos-postgres:
+  datos-caddy:
+  config-caddy:
+
+networks:
+  interna:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

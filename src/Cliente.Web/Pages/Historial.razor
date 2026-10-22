@@ -16,7 +16,7 @@
             Cualquier persona que tenga el enlace de un análisis puede verlo.
             @if (retencionDias is { } dias)
             {
-                <span>Los análisis se conservan @dias días en el servidor y luego se eliminan automáticamente.</span>
+                <span>@Presentacion.Conservacion(dias, purgaActiva)</span>
             }
         </p>
     </div>
@@ -143,6 +143,7 @@ else
     private bool almacenamientoDisponible = true;
     private bool danado;
     private int? retencionDias;
+    private bool purgaActiva;
     private List<EntradaLocal> entradas = [];
     private IReadOnlyList<Fila> filas = [];
     private ErrorApi? errorLote;
@@ -151,7 +152,9 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        retencionDias = (await Configuracion.ObtenerAsync())?.RetencionDias;
+        var configuracion = await Configuracion.ObtenerAsync();
+        retencionDias = configuracion?.RetencionDias;
+        purgaActiva = configuracion?.PurgaAutomaticaActiva ?? false;
         await Cargar();
     }
 
