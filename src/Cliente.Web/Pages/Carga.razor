@@ -1,0 +1,293 @@
+@page "/"
+@using Compartido.Contratos
+@using Cliente.Web.Componentes
+@using Cliente.Web.Servicios
+@implements IDisposable
+@inject ClienteApi Api
+@inject ConfiguracionCliente Configuracion
+@inject AlmacenHistorial Historial
+@inject AvisosSesion Avisos
+@inject NavigationManager Navegacion
+@inject IServicioNavegador Navegador
+
+<PageTitle>@(fase == Fase.Analizando ? "Analizando… · DiagNET" : "Nuevo análisis · DiagNET")</PageTitle>
+
+@if (fase == Fase.Analizando)
+{
+    @* P3: espera real. No hay porcentaje, etapas ni contadores: la API no informa progreso, y no se inventa. *@
+    <div class="card prog" aria-busy="true">
+        <div class="eyebrow">Analizando</div>
+        <h1 class="titulo-prog" tabindex="-1" @ref="encabezado">@nombre</h1>
+        <p class="muted">
+            Estamos consultando NuGet y evaluando cada librería. Puede tardar hasta @LimiteSegundos segundos; puedes quedarte en esta página.
+        </p>
+        <div class="indeterminada" role="progressbar" aria-label="Analizando el proyecto" aria-valuetext="Analizando; no hay un porcentaje disponible"><i></i></div>
+        <p class="muted transcurrido" aria-hidden="true">Tiempo transcurrido: @segundos s</p>
+        <div role="status" class="vh">Analizando el archivo @nombre. Esto puede tardar.</div>
+        <button type="button" class="btn sec" @onclick="Cancelar">Cancelar</button>
+    </div>
+}
+else if (fase == Fase.Error && errorApi is not null)
+{
+    @* P8: no se pudo completar el análisis *@
+    <MensajeError Titulo="No pudimos completar el análisis" Parrafos="TextosError(errorApi)" Referencia="@errorApi.Referencia">
+        <button type="button" class="btn pri" @onclick="Reintentar">Intentar de nuevo</button>
+        <a class="btn sec" href="historial">Ver historial</a>
+    </MensajeError>
+}
+else
+{
+    <div class="hero">
+        <div>
+            <div class="eyebrow">Diagnóstico técnico</div>
+            <h1 tabindex="-1" @ref="encabezado">Revisa las librerías de tu proyecto .NET en minutos</h1>
+            <p class="lead">Sube tu archivo .csproj y te mostramos qué librerías están desactualizadas, incompatibles o sin soporte, con los motivos y la evidencia de cada una.</p>
+            <ol class="steps">
+                <li><span class="n" aria-hidden="true">1</span><div><b>Sube el archivo</b><span>Solo necesitamos el .csproj de tu proyecto.</span></div></li>
+                <li><span class="n" aria-hidden="true">2</span><div><b>Consultamos NuGet</b><span>Comparamos cada librería con su información más reciente.</span></div></li>
+                <li><span class="n" aria-hidden="true">3</span><div><b>Recibe el diagnóstico</b><span>Estado, motivos y recomendaciones justificadas para cada librería.</span></div></li>
+            </ol>
+        </div>
+
+        <div>
+            <div class="card dz">
+                @if (fase == Fase.Invalido)
+                {
+                    <div class="alert bad" role="alert">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l10 18H2z" /><path d="M12 10v5M12 18h.01" /></svg>
+                        <div>
+                            <b>No pudimos leer el archivo</b>
+                            <ul>
+                                @foreach (var p in problemas)
+                                {
+                                    <li>@p</li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                }
+
+                @if (contenido is not null && fase == Fase.Seleccionado)
+                {
+                    <div class="file">
+                        <span class="ic" aria-hidden="true">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2679CF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" /><path d="M14 3v5h5M9 13l-2 2 2 2M15 13l2 2-2 2" /></svg>
+                        </span>
+                        <div class="meta">
+                            <b class="nombre-archivo">@nombre</b>
+                            <span class="muted">@Presentacion.Tamano(contenido.Length) · listo para analizar</span>
+                        </div>
+                        <label class="btn link reemplazar">
+                            Reemplazar
+                            <InputFile class="vh" OnChange="Seleccionar" accept=".csproj" aria-label="Reemplazar el archivo seleccionado" />
+                        </label>
+                        <button type="button" class="btn link" @onclick="Quitar">Quitar</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="drop @(arrastrando ? "over" : "")" @ondragenter="() => arrastrando = true" @ondragleave="() => arrastrando = false" @ondrop="() => arrastrando = false">
+                        <div class="ic" aria-hidden="true">
+                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2679CF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 16V5M7.5 9.5L12 5l4.5 4.5M5 19h14" /></svg>
+                        </div>
+                        <h2>@(fase == Fase.Invalido ? "Seleccionar otro archivo" : "Arrastra tu archivo .csproj aquí")</h2>
+                        <p class="muted">o haz clic para elegirlo desde tu computadora</p>
+                        <InputFile class="drop-input" OnChange="Seleccionar" accept=".csproj" aria-label="Seleccionar un archivo .csproj. También puedes arrastrarlo a esta zona." />
+                    </div>
+                }
+
+                <div class="chips">
+                    <span class="chip">Solo archivos .csproj</span>
+                    <span class="chip">Hasta @Presentacion.Tamano(maximoBytes)</span>
+                    <span class="chip">Se guarda el resultado, no el contenido del archivo</span>
+                </div>
+
+                <AvisoAcceso />
+
+                <button type="button" class="btn pri analizar" disabled="@(contenido is null || fase != Fase.Seleccionado)" @onclick="Analizar" aria-describedby="aviso-acceso">Analizar proyecto</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum Fase { Inicial, Seleccionado, Invalido, Analizando, Error }
+
+    private Fase fase = Fase.Inicial;
+    // El contenido se lee al elegir el archivo (pesa como máximo el límite del servidor): el control de selección puede desaparecer de la página
+    // al cambiar de estado, y el navegador ya no entregaría el archivo después.
+    private string? nombre;
+    private byte[]? contenido;
+    private List<string> problemas = [];
+    private ErrorApi? errorApi;
+    private bool arrastrando;
+    private int segundos;
+    private int limiteSegundos;
+    private long maximoBytes = LimitesEntrada.TamanoMaximoArchivoBytes;
+    private CancellationTokenSource? cts;
+    private ElementReference encabezado;
+    private bool enfocarEncabezado;
+
+    private int LimiteSegundos => limiteSegundos > 0 ? limiteSegundos : 120;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var configuracion = await Configuracion.ObtenerAsync();
+        if (configuracion is not null)
+        {
+            maximoBytes = configuracion.TamanoMaximoArchivoBytes;
+            limiteSegundos = configuracion.PresupuestoAnalisisSegundos;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool primera)
+    {
+        if (!enfocarEncabezado) return;
+        enfocarEncabezado = false;
+        await Navegador.EnfocarAsync(encabezado);
+    }
+
+    private async Task Seleccionar(InputFileChangeEventArgs e)
+    {
+        arrastrando = false;
+        errorApi = null;
+        problemas = [];
+
+        if (e.FileCount > 1)
+        {
+            contenido = null;
+            nombre = null;
+            problemas.Add("Selecciona un solo archivo .csproj.");
+            fase = Fase.Invalido;
+            return;
+        }
+
+        var candidato = e.File;
+        if (!candidato.Name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)) problemas.Add("El archivo no tiene extensión .csproj.");
+        if (candidato.Size == 0) problemas.Add("El archivo está vacío.");
+        if (candidato.Size > maximoBytes) problemas.Add($"El archivo supera el tamaño máximo de {Presentacion.Tamano(maximoBytes)}.");
+        if (candidato.Name.Length > 260) problemas.Add("El nombre del archivo es demasiado largo (máximo 260 caracteres).");
+
+        if (problemas.Count == 0)
+        {
+            try
+            {
+                await using var flujo = candidato.OpenReadStream(maximoBytes);
+                using var memoria = new MemoryStream();
+                await flujo.CopyToAsync(memoria);
+                contenido = memoria.ToArray();
+                nombre = candidato.Name;
+                fase = Fase.Seleccionado;
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException or Microsoft.JSInterop.JSException)
+            {
+                problemas.Add("No se pudo leer el archivo seleccionado (puede haber cambiado de lugar). Selecciónalo de nuevo.");
+            }
+        }
+
+        contenido = null;
+        nombre = null;
+        fase = Fase.Invalido;
+    }
+
+    private void Quitar()
+    {
+        contenido = null;
+        nombre = null;
+        problemas = [];
+        fase = Fase.Inicial;
+    }
+
+    private async Task Analizar()
+    {
+        if (contenido is null || nombre is null || fase != Fase.Seleccionado) return;
+
+        fase = Fase.Analizando;
+        enfocarEncabezado = true;
+        segundos = 0;
+        errorApi = null;
+        cts = new CancellationTokenSource();
+        var token = cts.Token;
+        _ = ContarSegundosAsync(token);
+
+        try
+        {
+            var resultado = await Api.AnalizarAsync(nombre, contenido, token);
+            if (resultado.Ok)
+            {
+                var analisis = resultado.Valor!;
+                var guardado = await Historial.AgregarAsync(new EntradaLocal(analisis.Id, analisis.NombreArchivo, analisis.FechaAnalisis));
+                Avisos.HistorialNoGuardado = !guardado;
+                Avisos.IdSinGuardar = guardado ? null : analisis.Id;
+                Navegacion.NavigateTo($"resultado/{analisis.Id:D}");
+                return;
+            }
+
+            errorApi = resultado.Error;
+            if (errorApi!.EsEntradaInvalida)
+            {
+                problemas = [errorApi.Detalle ?? errorApi.Titulo];
+                contenido = null;
+                nombre = null;
+                fase = Fase.Invalido;
+            }
+            else
+            {
+                fase = Fase.Error;
+                enfocarEncabezado = true;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // El usuario canceló: el servidor cancela el trabajo y no guarda nada.
+            fase = Fase.Seleccionado;
+            enfocarEncabezado = true;
+        }
+        finally
+        {
+            cts?.Cancel();
+            cts?.Dispose();
+            cts = null;
+        }
+    }
+
+    private void Cancelar() => cts?.Cancel();
+
+    private void Reintentar()
+    {
+        errorApi = null;
+        fase = contenido is null ? Fase.Inicial : Fase.Seleccionado;
+        enfocarEncabezado = true;
+    }
+
+    // Tiempo real transcurrido (no es progreso): solo para que la espera no parezca detenida.
+    private async Task ContarSegundosAsync(CancellationToken ct)
+    {
+        using var temporizador = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        try
+        {
+            while (await temporizador.WaitForNextTickAsync(ct))
+            {
+                segundos++;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private static IReadOnlyList<string> TextosError(ErrorApi error) => error.Status switch
+    {
+        0 => ["No pudimos contactar con el servidor. No se guardó ningún resultado.", "Revisa tu conexión e inténtalo de nuevo."],
+        429 => ["Hay demasiados análisis en curso en este momento.", "Espera unos segundos e inténtalo de nuevo."],
+        _ => ["Ocurrió un problema en el servidor. No se guardó ningún resultado.", error.Detalle ?? "Inténtalo de nuevo en unos minutos."],
+    };
+
+    public void Dispose()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
+    }
+}

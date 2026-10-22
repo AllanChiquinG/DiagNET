@@ -1,0 +1,44 @@
+@using Compartido.Contratos
+@using Cliente.Web.Servicios
+@* Avisos del análisis completo. Un resultado parcial se anuncia con su explicación; los avisos (frameworks, presupuesto, recomendaciones no evaluadas por completo…) se
+   muestran siempre, aunque el análisis esté completo. Los textos los redacta el servidor. *@
+@if (Estado == EstadoAnalisis.Parcial)
+{
+    <div class="alert warn banner" role="status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l10 18H2z" /><path d="M12 10v5M12 18h.01" /></svg>
+        <div>
+            <b>Resultado parcial</b>
+            <div>Algunas librerías no pudieron determinarse por completo o quedaron con evidencia incompleta. Los demás resultados son válidos y se conservan tal cual.</div>
+            @if (Advertencias.Count > 0)
+            {
+                <ul>
+                    @foreach (var a in Advertencias)
+                    {
+                        <li>@a.Mensaje</li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+}
+else if (Advertencias.Count > 0)
+{
+    <div class="alert info banner" role="status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+        <div>
+            <b>Avisos del análisis</b>
+            <ul>
+                @foreach (var a in Advertencias)
+                {
+                    <li>@a.Mensaje</li>
+                }
+            </ul>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public EstadoAnalisis Estado { get; set; }
+
+    [Parameter] public IReadOnlyList<AdvertenciaDto> Advertencias { get; set; } = [];
+}

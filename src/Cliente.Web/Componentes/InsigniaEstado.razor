@@ -1,0 +1,7 @@
+@using Compartido.Contratos
+@using Cliente.Web.Servicios
+<span class="badge @Presentacion.Clase(Estado)"><IconoEstado Estado="Estado" />@Presentacion.Texto(Estado)</span>
+
+@code {
+    [Parameter, EditorRequired] public EstadoDiagnostico Estado { get; set; }
+}

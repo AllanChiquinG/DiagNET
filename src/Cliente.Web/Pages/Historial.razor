@@ -1,0 +1,193 @@
+@page "/historial"
+@using Compartido.Contratos
+@using Cliente.Web.Componentes
+@using Cliente.Web.Servicios
+@inject ClienteApi Api
+@inject ConfiguracionCliente Configuracion
+@inject AlmacenHistorial Almacen
+
+<PageTitle>Historial · DiagNET</PageTitle>
+
+<div class="head">
+    <div>
+        <h1 tabindex="-1">Análisis anteriores</h1>
+        <p class="muted">
+            Este historial pertenece a <b>este navegador</b>: no es una cuenta, no se comparte con otros dispositivos y se pierde si borras los datos del sitio.
+            Cualquier persona que tenga el enlace de un análisis puede verlo.
+            @if (retencionDias is { } dias)
+            {
+                <span>Los análisis se conservan @dias días en el servidor y luego se eliminan automáticamente.</span>
+            }
+        </p>
+    </div>
+    <div class="acts"><a class="btn pri" href="">Nuevo análisis</a></div>
+</div>
+
+@if (cargando)
+{
+    <div class="card empty" role="status" aria-busy="true"><p class="muted">Consultando tus análisis guardados…</p></div>
+}
+else if (!almacenamientoDisponible)
+{
+    @* El navegador no deja guardar datos del sitio (modo privado, bloqueo de cookies/almacenamiento): no hay historial posible, pero la aplicación sigue funcionando. *@
+    <div class="card empty" role="alert">
+        <h2>El historial no está disponible en este navegador</h2>
+        <p class="muted">
+            Tu navegador bloquea el almacenamiento local (por ejemplo, en una ventana privada o por una configuración de privacidad), así que DiagNET no puede recordar tus análisis aquí.
+            Puedes seguir analizando proyectos: guarda el enlace de cada resultado para volver a abrirlo.
+        </p>
+        <div class="btns"><a class="btn pri" href="">Nuevo análisis</a></div>
+    </div>
+}
+else if (entradas.Count == 0)
+{
+    <div class="card empty">
+        @if (danado)
+        {
+            <div class="alert warn compacta" role="status"><div>La lista guardada en este navegador no se pudo leer y se empezará de nuevo con el próximo análisis.</div></div>
+        }
+        <div class="ic" aria-hidden="true">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2679CF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="4" y="3" width="16" height="18" rx="3" /><path d="M8 8h8M8 12h8M8 16h4" /></svg>
+        </div>
+        <h2>Todavía no hay análisis guardados en este navegador</h2>
+        <p class="muted">Cuando analices un proyecto, aparecerá aquí para que puedas consultarlo de nuevo sin volver a consultar NuGet.</p>
+        <div class="btns"><a class="btn pri" href="">Analizar mi primer proyecto</a></div>
+    </div>
+}
+else
+{
+    @if (errorLote is not null)
+    {
+        <div class="alert bad banner" role="alert">
+            <div>
+                <b>No se pudieron consultar algunos análisis</b>
+                <div>@errorLote.Titulo. Tus análisis guardados no se han perdido; las filas marcadas siguen en la lista.@(errorLote.Referencia is null ? "" : $" Referencia: {errorLote.Referencia}.")</div>
+                <button type="button" class="btn sec reintentar" @onclick="Cargar">Reintentar</button>
+            </div>
+        </div>
+    }
+
+    @if (danado)
+    {
+        <div class="alert warn banner" role="status"><div>Una parte de la lista guardada en este navegador no se pudo leer.</div></div>
+    }
+
+    @if (entradas.Count >= AlmacenHistorial.MaximoEntradas)
+    {
+        <div class="alert warn banner" role="status"><div>Se alcanzó el máximo de @AlmacenHistorial.MaximoEntradas análisis guardados en este navegador. Quita algunos para poder guardar nuevos.</div></div>
+    }
+
+    <div class="card">
+        <div class="tw">
+            <table>
+                <caption class="vh">Análisis guardados en este navegador, del más reciente al más antiguo</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Archivo</th>
+                        <th scope="col">Fecha</th>
+                        <th scope="col">Framework</th>
+                        <th scope="col">Dependencias</th>
+                        <th scope="col">Resultado</th>
+                        <th scope="col"><span class="vh">Acciones</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in Filas)
+                    {
+                        <tr>
+                            <td class="pk"><b class="nombre-archivo">@f.Nombre</b></td>
+                            <td>@Presentacion.Fecha(f.Fecha)</td>
+                            <td class="mono">@(f.Resumen is null ? "—" : f.Resumen.FrameworksDeclarados.Count == 0 ? "—" : string.Join("; ", f.Resumen.FrameworksDeclarados))</td>
+                            <td class="num">@(f.Resumen is null ? "—" : f.Resumen.TotalDependencias.ToString())</td>
+                            <td>
+                                @if (f.Resumen is not null)
+                                {
+                                    <span class="badge @(f.Resumen.Estado == EstadoAnalisis.Parcial ? "part" : "full")">@Presentacion.Texto(f.Resumen.Estado)</span>
+                                }
+                                else if (f.Situacion == Situacion.NoDisponible)
+                                {
+                                    <span class="badge nd">Ya no disponible</span>
+                                }
+                                else
+                                {
+                                    <span class="badge nd">No se pudo consultar</span>
+                                }
+                            </td>
+                            <td class="acciones">
+                                @if (f.Resumen is not null)
+                                {
+                                    <a href="resultado/@f.Id.ToString("D")" aria-label="Abrir el análisis de @f.Nombre">Abrir ›</a>
+                                }
+                                else if (f.Situacion == Situacion.NoDisponible)
+                                {
+                                    <span class="muted explicacion">El servidor ya no lo devuelve: no existe, venció su plazo o no está disponible.</span>
+                                }
+                                <button type="button" class="btn link quitar" @onclick="() => Quitar(f.Id)" aria-label="Quitar @f.Nombre de la lista de este navegador">Quitar de esta lista</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="foot"><span role="status">@entradas.Count @(entradas.Count == 1 ? "análisis guardado" : "análisis guardados") en este navegador</span></div>
+    </div>
+    <p class="note">Quitar una entrada solo la borra de la lista de este navegador; el análisis sigue existiendo en el servidor hasta que venza su plazo y cualquiera con su enlace puede abrirlo.</p>
+}
+
+@code {
+    private enum Situacion { Encontrado, NoDisponible, SinConsultar }
+
+    private sealed record Fila(Guid Id, string Nombre, DateTimeOffset Fecha, ResumenAnalisisDto? Resumen, Situacion Situacion);
+
+    private bool cargando = true;
+    private bool almacenamientoDisponible = true;
+    private bool danado;
+    private int? retencionDias;
+    private List<EntradaLocal> entradas = [];
+    private IReadOnlyList<Fila> filas = [];
+    private ErrorApi? errorLote;
+
+    private IReadOnlyList<Fila> Filas => filas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        retencionDias = (await Configuracion.ObtenerAsync())?.RetencionDias;
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        errorLote = null;
+        var estado = await Almacen.CargarAsync();
+        almacenamientoDisponible = estado.Disponible;
+        danado = estado.Danado;
+        entradas = estado.Entradas.ToList();
+
+        if (entradas.Count > 0)
+        {
+            // Todos los identificadores guardados se consultan, en lotes de hasta 50: ninguna entrada se descarta en silencio.
+            var resultado = await Api.ListarAsync(entradas.Select(e => e.Id).ToList());
+            errorLote = resultado.Error;
+            var encontrados = resultado.Encontrados.ToDictionary(r => r.Id);
+            var sinConsultar = resultado.SinConsultar.ToHashSet();
+            filas = entradas.Select(e => encontrados.TryGetValue(e.Id, out var r)
+                    ? new Fila(e.Id, r.NombreArchivo, r.FechaAnalisis, r, Situacion.Encontrado)
+                    : new Fila(e.Id, e.NombreArchivo, e.FechaAnalisis, null, sinConsultar.Contains(e.Id) ? Situacion.SinConsultar : Situacion.NoDisponible))
+                .OrderByDescending(f => f.Fecha).ToList();
+        }
+        else
+        {
+            filas = [];
+        }
+
+        cargando = false;
+    }
+
+    private async Task Quitar(Guid id)
+    {
+        await Almacen.QuitarAsync(id);
+        entradas.RemoveAll(e => e.Id == id);
+        filas = filas.Where(f => f.Id != id).ToList();
+    }
+}

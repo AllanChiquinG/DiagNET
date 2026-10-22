@@ -1,0 +1,26 @@
+@* Mensaje de error de pantalla completa (P8). Siempre con una referencia útil cuando el servidor la entregó, sin mostrar trazas ni detalles internos. *@
+<div class="card empty" role="alert">
+    <div class="ic" aria-hidden="true">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2679CF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4M8.5 8.5l5 5M13.5 8.5l-5 5" /></svg>
+    </div>
+    <h1 class="titulo-error" tabindex="-1">@Titulo</h1>
+    @foreach (var parrafo in Parrafos)
+    {
+        <p class="muted">@parrafo</p>
+    }
+    @if (!string.IsNullOrWhiteSpace(Referencia))
+    {
+        <p class="note">Código de referencia: <span class="ref">@Referencia</span></p>
+    }
+    <div class="btns">@ChildContent</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = "";
+
+    [Parameter] public IReadOnlyList<string> Parrafos { get; set; } = [];
+
+    [Parameter] public string? Referencia { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

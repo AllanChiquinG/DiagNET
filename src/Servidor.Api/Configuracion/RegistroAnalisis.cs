@@ -27,6 +27,7 @@ public static class RegistroAnalisis
         var consultas = Enlazar(configuracion, "Historial", new OpcionesConsultas());
         var api = Enlazar(configuracion, "Analisis", new OpcionesAnalisisApi());
 
+        servicios.AddSingleton(orquestacion);
         servicios.AddSingleton(consultas);
         servicios.AddSingleton(api);
         servicios.AddSingleton(sp => new ServicioMetadatos(

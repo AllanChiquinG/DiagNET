@@ -1,0 +1,36 @@
+@using Compartido.Contratos
+@using Cliente.Web.Servicios
+@* Seis contadores: total más los cinco estados. Los valores llegan calculados desde las dependencias del resultado guardado; aquí solo se muestran y filtran. *@
+<div class="sum" role="group" aria-label="Resumen por estado. Elige un estado para filtrar la tabla.">
+    <button type="button" class="tile @(Filtro is null ? "on" : "")" aria-pressed="@(Filtro is null ? "true" : "false")" @onclick="() => Elegir(null)">
+        <span class="v">@Resumen.Total</span>
+        <span class="l">Total</span>
+    </button>
+    @foreach (var (estado, valor) in Estados())
+    {
+        <button type="button" class="tile @Presentacion.Clase(estado) @(Filtro == estado ? "on" : "")" aria-pressed="@(Filtro == estado ? "true" : "false")" @onclick="() => Elegir(estado)">
+            <span class="v">@valor</span>
+            <span class="l"><IconoEstado Estado="estado" />@Presentacion.Texto(estado)</span>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ResumenEstadosDto Resumen { get; set; } = null!;
+
+    [Parameter] public EstadoDiagnostico? Filtro { get; set; }
+
+    [Parameter] public EventCallback<EstadoDiagnostico?> FiltroChanged { get; set; }
+
+    private IEnumerable<(EstadoDiagnostico, int)> Estados()
+    {
+        yield return (EstadoDiagnostico.Actualizada, Resumen.Actualizadas);
+        yield return (EstadoDiagnostico.Desactualizada, Resumen.Desactualizadas);
+        yield return (EstadoDiagnostico.Incompatible, Resumen.Incompatibles);
+        yield return (EstadoDiagnostico.SinSoporteActivo, Resumen.SinSoporteActivo);
+        yield return (EstadoDiagnostico.NoDeterminada, Resumen.NoDeterminadas);
+    }
+
+    // Elegir el filtro ya activo lo quita (vuelve a «Total»).
+    private Task Elegir(EstadoDiagnostico? estado) => FiltroChanged.InvokeAsync(Filtro == estado ? null : estado);
+}

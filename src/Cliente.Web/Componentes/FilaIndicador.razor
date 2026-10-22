@@ -1,0 +1,21 @@
+@* Una fila «nombre → valor» del panel. «No determinado» y «No evaluado» se ven distintos de un valor real (nunca se muestran como 0 o falso). *@
+<dt>@Titulo</dt>
+<dd class="@(Mono ? "mono" : "") @(Conocido ? "" : "desconocido")">
+    @Texto
+    @if (!string.IsNullOrWhiteSpace(Nota))
+    {
+        <span class="nota-ind">@Nota</span>
+    }
+</dd>
+
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Texto { get; set; } = "";
+
+    [Parameter] public bool Conocido { get; set; } = true;
+
+    [Parameter] public string? Nota { get; set; }
+
+    [Parameter] public bool Mono { get; set; }
+}

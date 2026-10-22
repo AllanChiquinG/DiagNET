@@ -12,6 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Credenciales y cadenas de conexión reales: appsettings.Local.json (ignorado por Git) o variables de entorno. Nunca en el repositorio.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// Las variables de entorno y la línea de comandos prevalecen sobre el archivo local (orden habitual): permiten ejecutar contra otra base sin tocar archivos.
+builder.Configuration.AddEnvironmentVariables();
+builder.Configuration.AddCommandLine(args);
 builder.Services.AddManejoErrores();
 
 // Registros: los identificadores de análisis viajan en la ruta (/api/analisis/{id}) y en la consulta (?ids=…). Las categorías que escriben la URL completa de cada solicitud
@@ -90,7 +93,7 @@ if (app.Environment.IsDevelopment())
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
 
-app.MapGroup("/api").MapSalud().MapProyectos().MapAnalisis();
+app.MapGroup("/api").MapSalud().MapConfiguracion().MapProyectos().MapAnalisis();
 
 // Una ruta /api desconocida devuelve 404 y nunca index.html (no hay fallback SPA bajo /api).
 app.Map("/api/{**resto}", () => ManejoErrores.Problema(CodigosError.RecursoNoEncontrado));

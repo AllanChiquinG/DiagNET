@@ -1,0 +1,24 @@
+@using Compartido.Contratos
+@* Icono del estado: el color NUNCA es la única señal (siempre va con este icono y con el texto del estado). Decorativo para lectores de pantalla. *@
+@switch (Estado)
+{
+    case EstadoDiagnostico.Actualizada:
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></svg>
+        break;
+    case EstadoDiagnostico.Desactualizada:
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+        break;
+    case EstadoDiagnostico.Incompatible:
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></svg>
+        break;
+    case EstadoDiagnostico.SinSoporteActivo:
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M6 18L18 6" /></svg>
+        break;
+    default:
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 015 .3c0 1.7-2.5 2-2.5 3.7M12 17h.01" /></svg>
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired] public EstadoDiagnostico Estado { get; set; }
+}

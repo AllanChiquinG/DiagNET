@@ -1,0 +1,56 @@
+@using Compartido.Contratos
+@* Una recomendación tal como quedó guardada en el resultado. Los textos (etiqueta, justificación, limitaciones, cambios de código) vienen redactados del servidor
+   (E6/E7) y aquí no se reescriben ni se endulzan: un candidato NUNCA se presenta como reemplazo recomendado. *@
+<section class="recc @(Recomendacion.Tipo == TipoRecomendacion.CandidatoParaRevision ? "revision" : "")" aria-label="@Etiqueta">
+    <div class="t">@Etiqueta</div>
+    <div class="pkg">
+        <b class="mono">@Recomendacion.Paquete</b>
+        @if (Recomendacion.VersionSugerida is not null)
+        {
+            <span class="chip">versión comprobada @Recomendacion.VersionSugerida</span>
+        }
+        else
+        {
+            <span class="chip">sin versión comprobada</span>
+        }
+    </div>
+    <p>@Recomendacion.Justificacion</p>
+    @if (!string.IsNullOrWhiteSpace(Recomendacion.TextoCambiosDeCodigo))
+    {
+        <p class="cambios"><b>@Recomendacion.TextoCambiosDeCodigo</b></p>
+    }
+    @if (Recomendacion.Evidencia.Count > 0)
+    {
+        <details>
+            <summary>Evidencia (@Recomendacion.Evidencia.Count)</summary>
+            <dl class="dl dl-ev">
+                @foreach (var e in Recomendacion.Evidencia)
+                {
+                    <dt>@e.Clave.Replace('_', ' ')</dt>
+                    <dd>@e.Valor</dd>
+                }
+            </dl>
+        </details>
+    }
+    @if (Recomendacion.Limitaciones.Count > 0)
+    {
+        <h4>Limitaciones</h4>
+        <ul class="why">
+            @foreach (var l in Recomendacion.Limitaciones)
+            {
+                <li>@l</li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public RecomendacionDto Recomendacion { get; set; } = null!;
+
+    private string Etiqueta => Recomendacion.Etiqueta ?? Recomendacion.Tipo switch
+    {
+        TipoRecomendacion.ActualizarVersion => "Actualización del mismo paquete",
+        TipoRecomendacion.Alternativa => "Alternativa sugerida por el autor",
+        _ => "Candidato para revisión (relación funcional no demostrada)",
+    };
+}

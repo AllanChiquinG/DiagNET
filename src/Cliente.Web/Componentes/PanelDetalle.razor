@@ -1,0 +1,307 @@
+@using Compartido.Contratos
+@using Cliente.Web.Servicios
+@implements IAsyncDisposable
+@inject IServicioNavegador Navegador
+
+@* Panel lateral de detalle (P5). Muestra exclusivamente lo guardado en el resultado: motivos, evidencia, indicadores, recomendaciones y limitaciones.
+   No consulta NuGet ni recalcula. Es modal: el foco se mantiene dentro, Escape lo cierra y el foco vuelve a quien lo abrió. *@
+<div class="shade" @onclick="Cerrar" aria-hidden="true"></div>
+<aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="panel-titulo" @ref="panel" data-panel-detalle>
+    <div class="hd">
+        <div>
+            <div class="muted peq">Detalle de la librería</div>
+            <h2 id="panel-titulo" class="mono nombre-panel">@Dependencia.Nombre</h2>
+            <div class="fila-estado">
+                <InsigniaEstado Estado="Diagnostico.Estado" />
+                <span class="muted peq">Versión declarada: <span class="mono">@(Dependencia.VersionDeclarada ?? "—")</span> (@Presentacion.Texto(Dependencia.TipoVersion))</span>
+            </div>
+        </div>
+        <button type="button" class="x" @onclick="Cerrar" aria-label="Cerrar el detalle de @Dependencia.Nombre">×</button>
+    </div>
+
+    <section aria-labelledby="sec-motivos">
+        <h3 id="sec-motivos">Por qué este estado</h3>
+        @if (!string.IsNullOrWhiteSpace(Titulo))
+        {
+            <p class="lead-estado">@Titulo</p>
+        }
+        @if (Motivos.Count > 0)
+        {
+            <ul class="why">
+                @foreach (var h in Motivos)
+                {
+                    <li>
+                        <span class="grav @h.Gravedad.ToString().ToLowerInvariant()">@Presentacion.Texto(h.Gravedad)</span> @h.Mensaje
+                        @EvidenciaDe(h)
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="muted">No hay motivos de aviso para esta librería.</p>
+        }
+
+        @if (Faltantes.Count > 0)
+        {
+            <div class="alert warn compacta" role="note">
+                <div>
+                    <b>Falta evidencia para concluir por completo</b>
+                    <div>El estado de arriba se basa en lo que sí se pudo comprobar; por esto el análisis puede figurar como parcial.</div>
+                    <ul>
+                        @foreach (var h in Faltantes)
+                        {
+                            <li>@h.Mensaje @EvidenciaDe(h)</li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+
+        @if (Diagnostico.EvaluacionPorTfm.Count > 0)
+        {
+            <h4>Estado por framework</h4>
+            <ul class="tfms">
+                @foreach (var t in Diagnostico.EvaluacionPorTfm)
+                {
+                    <li><span class="mono">@t.Tfm</span> <InsigniaEstado Estado="t.Estado" /></li>
+                }
+            </ul>
+        }
+
+        @if (Informativos.Count > 0)
+        {
+            <details>
+                <summary>Otros datos informativos (@Informativos.Count)</summary>
+                <ul class="why">
+                    @foreach (var h in Informativos)
+                    {
+                        <li>@h.Mensaje @EvidenciaDe(h)</li>
+                    }
+                </ul>
+            </details>
+        }
+    </section>
+
+    <section aria-labelledby="sec-indicadores">
+        <h3 id="sec-indicadores">Indicadores consultados</h3>
+        @if (Diagnostico.Indicadores is { } i)
+        {
+            <dl class="dl">
+                @{
+                    var fecha = Presentacion.Indicador(i.FechaPublicacionDeclarada, v => Presentacion.Fecha(v));
+                    var estable = Presentacion.Indicador(i.UltimaVersionEstable, v => v ?? "", "No hay versión estable publicada");
+                    var compatible = Presentacion.Indicador(i.UltimaVersionEstableCompatible, v => v ?? "", "Ninguna comprobada");
+                    var meses = Presentacion.Indicador(i.MesesDesdeUltimaPublicacion, m => $"{m} meses");
+                    var descargas = Presentacion.Indicador(i.Descargas, n => Presentacion.Entero(n ?? 0));
+                    var licencia = Presentacion.Indicador(i.Licencia, l => l is null ? "" : l.Tipo is { } t ? $"{l.Valor} ({Presentacion.Texto(t)})" : $"{l.Valor} (tipo no informado por NuGet)");
+                    var deprecado = Presentacion.Indicador(i.Deprecado, b => b == true ? "Sí" : "No");
+                    var aot = Presentacion.Indicador(i.Aot, _ => "Sí");
+                }
+                <FilaIndicador Titulo="Publicación de la versión declarada" Texto="@fecha.Texto" Conocido="fecha.Conocido" Nota="@i.FechaPublicacionDeclarada.Nota" />
+                <FilaIndicador Titulo="Última versión estable" Texto="@estable.Texto" Conocido="estable.Conocido" Nota="@i.UltimaVersionEstable.Nota" Mono="@estable.Conocido" />
+                <FilaIndicador Titulo="Última estable compatible" Texto="@compatible.Texto" Conocido="compatible.Conocido" Nota="@i.UltimaVersionEstableCompatible.Nota" Mono="@compatible.Conocido" />
+                <FilaIndicador Titulo="Selección de versiones" Texto="@(i.SeleccionVersionesCompleta ? "Completa" : "Incompleta")" Conocido="i.SeleccionVersionesCompleta"
+                               Nota="@(i.SeleccionVersionesCompleta ? null : "No se revisó todo el registro del paquete: puede haber versiones más recientes sin revisar.")" />
+                <FilaIndicador Titulo="Meses desde la última publicación" Texto="@meses.Texto" Conocido="meses.Conocido" Nota="@i.MesesDesdeUltimaPublicacion.Nota" />
+                <FilaIndicador Titulo="Descargas" Texto="@descargas.Texto" Conocido="descargas.Conocido" Nota="@i.Descargas.Nota" />
+                <FilaIndicador Titulo="Licencia (informativa)" Texto="@licencia.Texto" Conocido="licencia.Conocido" Nota="@i.Licencia.Nota" />
+                <FilaIndicador Titulo="Deprecada en NuGet" Texto="@deprecado.Texto" Conocido="deprecado.Conocido" Nota="@i.Deprecado.Nota" />
+                <FilaIndicador Titulo="Compatibilidad con AOT" Texto="@aot.Texto" Conocido="false" Nota="@(i.Aot.Nota ?? "DiagNET no evalúa AOT en esta versión: no se afirma ni se descarta.")" />
+                <FilaIndicador Titulo="Origen de los datos" Texto="@Presentacion.OrigenYFecha(Diagnostico)" Conocido="@(Diagnostico.Origen != OrigenDato.NoDeterminado)"
+                               Nota="@(Diagnostico.Origen == OrigenDato.CacheExpirada ? "La fecha es la de la copia original: NuGet no respondió y se usó una copia guardada vencida." : null)" />
+            </dl>
+
+            @if (i.Deprecacion is { } dep)
+            {
+                <h4>Deprecación publicada por NuGet</h4>
+                <ul class="why">
+                    <li>Razones: @(dep.Razones.Count == 0 ? "sin razón indicada" : string.Join(", ", dep.Razones))</li>
+                    @if (!string.IsNullOrWhiteSpace(dep.Mensaje))
+                    {
+                        <li>Mensaje del autor: @dep.Mensaje</li>
+                    }
+                    @if (dep.PaqueteAlterno is not null)
+                    {
+                        <li>Paquete alterno que indica el autor: <span class="mono">@dep.PaqueteAlterno</span>@(dep.RangoVersionAlterno is null ? "" : $" (rango {dep.RangoVersionAlterno})")</li>
+                    }
+                </ul>
+            }
+
+            <h4>Compatibilidad por framework</h4>
+            @if (i.CompatibilidadPorTfm.Count == 0)
+            {
+                <p class="muted">No se determinó compatibilidad con ningún framework.</p>
+            }
+            else
+            {
+                <ul class="why">
+                    @foreach (var c in i.CompatibilidadPorTfm)
+                    {
+                        <li><span class="mono">@c.Tfm</span>: @Presentacion.Texto(c.Resultado)@(string.IsNullOrWhiteSpace(c.Detalle) ? "" : " — " + c.Detalle)</li>
+                    }
+                </ul>
+            }
+
+            <p class="nota-ind">La compatibilidad es INFERIDA de los grupos de dependencias que publica NuGet: no certifica ensamblados, compilación ni ejecución. Una ausencia de grupo compatible no demuestra incompatibilidad.</p>
+        }
+        else
+        {
+            <p class="muted">No hay indicadores: no se obtuvieron datos de NuGet para esta librería, y no se inventan.</p>
+            <dl class="dl">
+                <FilaIndicador Titulo="Origen de los datos" Texto="@Presentacion.OrigenYFecha(Diagnostico)" Conocido="false" />
+                <FilaIndicador Titulo="Compatibilidad con AOT" Texto="No evaluado" Conocido="false" Nota="DiagNET no evalúa AOT en esta versión." />
+            </dl>
+        }
+    </section>
+
+    @if (AvisosDeLaLibreria.Count > 0)
+    {
+        <section aria-labelledby="sec-avisos">
+            <h3 id="sec-avisos">Avisos de esta librería</h3>
+            <ul class="why">
+                @foreach (var a in AvisosDeLaLibreria)
+                {
+                    <li>@a.Mensaje</li>
+                }
+            </ul>
+        </section>
+    }
+
+    <section aria-labelledby="sec-reco">
+        <h3 id="sec-reco">Recomendación</h3>
+        @if (Dependencia.Recomendaciones.Count == 0)
+        {
+            <div class="recc">
+                @if (NotasRecomendacion.Count > 0)
+                {
+                    @foreach (var n in NotasRecomendacion)
+                    {
+                        <p class="muted">@n.Mensaje</p>
+                    }
+                }
+                else
+                {
+                    <p class="muted">No hay recomendaciones para esta librería.</p>
+                }
+            </div>
+        }
+        else
+        {
+            @foreach (var r in Dependencia.Recomendaciones)
+            {
+                <TarjetaRecomendacion Recomendacion="r" />
+            }
+
+            @foreach (var n in NotasRecomendacion)
+            {
+                <p class="nota-ind">@n.Mensaje</p>
+            }
+        }
+    </section>
+
+    <div class="pie-panel">
+        <button type="button" class="btn sec" @onclick="CopiarNombre">Copiar nombre del paquete</button>
+        <button type="button" class="btn link" @onclick="Cerrar">Cerrar</button>
+        <span class="vh" role="status" aria-live="polite">@mensajeCopia</span>
+        @if (mensajeCopia is not null)
+        {
+            <span class="copiado" aria-hidden="true">@mensajeCopia</span>
+        }
+    </div>
+</aside>
+
+@code {
+    private ElementReference panel;
+    private string? mensajeCopia;
+    private bool abierto;
+
+    [Parameter, EditorRequired] public DependenciaAnalizadaDto Dependencia { get; set; } = null!;
+
+    /// <summary>Selector CSS del botón de la tabla que abrió el panel: recibe el foco al cerrar.</summary>
+    [Parameter] public string? Disparador { get; set; }
+
+    [Parameter] public EventCallback AlCerrar { get; set; }
+
+    private DiagnosticoDto Diagnostico => Dependencia.Diagnostico;
+
+    private IReadOnlyList<HallazgoDto> Motivos =>
+        Diagnostico.Hallazgos.Where(h => !h.EvidenciaDecisivaFaltante && h.Gravedad is GravedadHallazgo.Grave or GravedadHallazgo.Aviso).ToList();
+
+    private IReadOnlyList<HallazgoDto> Faltantes => Diagnostico.Hallazgos.Where(h => h.EvidenciaDecisivaFaltante).ToList();
+
+    private IReadOnlyList<HallazgoDto> Informativos => Diagnostico.Hallazgos.Where(h => !h.EvidenciaDecisivaFaltante && h.Gravedad == GravedadHallazgo.Informativo).ToList();
+
+    private static readonly string[] CodigosNotaRecomendacion =
+        ["sin_recomendaciones", "recomendaciones_no_verificadas", "recomendaciones_evaluacion_incompleta", "actualizacion_no_verificada"];
+
+    /// <summary>Notas del motor de recomendaciones: distinguen «no se encontraron» de «no se pudieron obtener o verificar».</summary>
+    private IReadOnlyList<AdvertenciaDto> NotasRecomendacion => Dependencia.Advertencias.Where(a => CodigosNotaRecomendacion.Contains(a.Codigo)).ToList();
+
+    private IReadOnlyList<AdvertenciaDto> AvisosDeLaLibreria => Dependencia.Advertencias.Where(a => !CodigosNotaRecomendacion.Contains(a.Codigo)).ToList();
+
+    /// <summary>Primera parte del resumen del servidor (el estado y su razón principal), antes de la lista de motivos.</summary>
+    private string? Titulo
+    {
+        get
+        {
+            var texto = Diagnostico.Resumen;
+            if (string.IsNullOrWhiteSpace(texto)) return null;
+            var cortes = new[] { " Motivos:", " Limitaciones:", " Evidencia incompleta:" }.Select(c => texto.IndexOf(c, StringComparison.Ordinal)).Where(p => p > 0).ToList();
+            return cortes.Count == 0 ? texto : texto[..cortes.Min()];
+        }
+    }
+
+    private RenderFragment EvidenciaDe(HallazgoDto h) => builder =>
+    {
+        if (h.Evidencia.Count == 0) return;
+        builder.OpenElement(0, "details");
+        builder.AddAttribute(1, "class", "ev");
+        builder.OpenElement(2, "summary");
+        builder.AddContent(3, "Evidencia");
+        builder.CloseElement();
+        builder.OpenElement(4, "dl");
+        builder.AddAttribute(5, "class", "dl dl-ev");
+        var n = 6;
+        foreach (var e in h.Evidencia)
+        {
+            builder.OpenElement(n++, "dt");
+            builder.AddContent(n++, e.Clave.Replace('_', ' '));
+            builder.CloseElement();
+            builder.OpenElement(n++, "dd");
+            builder.AddContent(n++, e.Valor);
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    protected override async Task OnAfterRenderAsync(bool primera)
+    {
+        if (!primera || abierto) return;
+        abierto = true;
+        await Navegador.AbrirPanelAsync(panel, Disparador, () => InvokeAsync(Cerrar));
+    }
+
+    private Task Cerrar() => AlCerrar.InvokeAsync();
+
+    private async Task CopiarNombre()
+    {
+        var ok = await Navegador.CopiarAsync(Dependencia.Nombre);
+        mensajeCopia = ok ? "Nombre copiado" : "No se pudo copiar. Selecciona el nombre y cópialo manualmente.";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!abierto) return;
+        abierto = false;
+        try
+        {
+            await Navegador.CerrarPanelAsync();
+        }
+        catch (Exception ex) when (ex is Microsoft.JSInterop.JSDisconnectedException or TaskCanceledException or InvalidOperationException)
+        {
+        }
+    }
+}

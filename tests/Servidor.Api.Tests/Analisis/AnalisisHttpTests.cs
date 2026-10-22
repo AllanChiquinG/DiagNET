@@ -381,6 +381,19 @@ public sealed class AnalisisHttpTests : IClassFixture<BaseDeDatosApi>, IDisposab
         }
     }
 
+    [Fact]
+    public async Task La_configuracion_publica_entrega_la_retencion_y_los_limites_reales_sin_secretos()
+    {
+        var respuesta = await _http.GetAsync("/api/configuracion");
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        var dto = (await respuesta.Content.ReadFromJsonAsync<ConfiguracionPublicaDto>())!;
+        Assert.Equal(new ConfiguracionPublicaDto(90, 50, LimitesEntrada.TamanoMaximoArchivoBytes, LimitesEntrada.MaximoDependencias, 120), dto);
+        var texto = await respuesta.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Password", texto, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ConnectionString", texto, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ---------------------------------------------------------------- cancelación, límite de simultáneos
 
     [Fact]

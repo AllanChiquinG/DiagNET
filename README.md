@@ -2,7 +2,7 @@
 
 Aplicación web en español que diagnostica las dependencias NuGet declaradas en un `.csproj` de .NET 8 o .NET 10.
 
-> **Estado:** E0 (solución base), E1 (contratos), E2 (lectura segura del `.csproj`) y E3 (datos con PostgreSQL y migraciones EF Core). Todavía no hay análisis ni integración con NuGet.
+> **Estado:** E0–E9: solución base, contratos, lectura segura del `.csproj`, datos con PostgreSQL, integración con NuGet, orquestación, diagnóstico, recomendaciones, API de análisis e interfaz web (Blazor WebAssembly). Pendiente: reporte PDF (E10) e instalación/defensa (E11–E12).
 
 ## Requisitos
 
@@ -23,7 +23,7 @@ src/
   Servidor.Datos/       Persistencia (EF Core/Npgsql desde E3)
   Servidor.Integracion/ NuGet y PDF (desde E4/E10)
 tests/
-  Servidor.Negocio.Tests/ Servidor.Api.Tests/
+  Cliente.Web.Tests/ Compartido.Contratos.Tests/ Servidor.Api.Tests/ Servidor.Datos.Tests/ Servidor.Integracion.Tests/ Servidor.Negocio.Tests/
 deploy/                 Docker/Compose (desde E11)
 ```
 
@@ -44,6 +44,16 @@ Comprobación de salud:
 ```bash
 curl http://localhost:5228/api/salud
 ```
+
+## Interfaz web (E9)
+
+Con la API en marcha (`dotnet run --project src/Servidor.Api`, ver arriba) y la base de datos migrada, abre <http://localhost:5228>:
+
+1. **Nuevo análisis** (`/`): elige o arrastra un `.csproj` (hasta 1 MB), lee el aviso de acceso por enlace y pulsa **Analizar proyecto**. La espera es indeterminada (el servidor no informa progreso) y se puede cancelar.
+2. **Resultado** (`/resultado/{id}`): seis contadores, tabla con filtros y panel de detalle por librería (motivos, evidencia, indicadores, recomendaciones y limitaciones). Abrir un resultado guardado solo lee: no consulta NuGet ni recalcula.
+3. **Historial** (`/historial`): lista los análisis que **este navegador** creó (identificadores en `localStorage`; se consultan en lotes de hasta 50). No es una cuenta, no se comparte entre dispositivos y se pierde si se borran los datos del sitio. Cualquier persona con el enlace de un análisis puede verlo.
+
+El reporte PDF todavía no existe (E10): el botón «Exportar PDF» está inactivo y lo explica. Las pruebas de la interfaz (`tests/Cliente.Web.Tests`, bUnit) no necesitan navegador ni base de datos.
 
 ## Leer un .csproj (E2)
 

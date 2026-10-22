@@ -1,0 +1,127 @@
+@using Compartido.Contratos
+@using Cliente.Web.Servicios
+@* Tabla de diagnósticos. Filtrar u ocultar actualizadas NUNCA elimina datos: solo cambia qué filas se ven. Todo sale del resultado guardado. *@
+<div class="card">
+    <div class="tw">
+        <table>
+            <caption class="vh">Diagnóstico de las librerías del proyecto, ordenadas por gravedad</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Librería</th>
+                    <th scope="col">Versión declarada</th>
+                    <th scope="col">Última versión</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Recomendación</th>
+                    <th scope="col"><span class="vh">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Visibles.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="muted vacio">
+                            @(Dependencias.Count == 0 ? "Este proyecto no declara paquetes NuGet." : "No hay librerías con este estado.")
+                        </td>
+                    </tr>
+                }
+                @foreach (var d in Visibles)
+                {
+                    var indice = Dependencias.ToList().IndexOf(d);
+                    <tr class="fila" @onclick="() => Abrir(d, indice)" data-nombre="@d.Nombre">
+                        <td class="pk">
+                            <button type="button" class="nombre" aria-haspopup="dialog" data-indice="@indice" @onclick="() => Abrir(d, indice)" @onclick:stopPropagation="true">@d.Nombre</button>
+                            <span class="etiquetas">
+                                @if (EsCopia(d))
+                                {
+                                    <span class="cachetag">@(d.Diagnostico.Origen == OrigenDato.CacheExpirada ? "Copia vencida" : "Copia guardada") · @Presentacion.Fecha(d.Diagnostico.FechaConsulta)</span>
+                                }
+                                @if (d.Diagnostico.Hallazgos.Any(h => h.EvidenciaDecisivaFaltante))
+                                {
+                                    <span class="cachetag">Evidencia incompleta</span>
+                                }
+                            </span>
+                        </td>
+                        <td class="mono vers">@(d.VersionDeclarada ?? "—")@if (d.TipoVersion != TipoVersionDeclarada.Exacta)
+                            {
+                                <span class="sub">(@Presentacion.Texto(d.TipoVersion))</span>
+                            }</td>
+                        <td class="mono vers">@UltimaVersion(d)</td>
+                        <td><InsigniaEstado Estado="d.Diagnostico.Estado" /></td>
+                        <td class="rec">@Recomendacion(d)</td>
+                        <td class="cue" aria-hidden="true">Ver detalle ›</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="foot">
+        <span role="status">Mostrando @Visibles.Count de @Filtradas.Count librerías · ordenadas por gravedad</span>
+        @if (Ocultas > 0)
+        {
+            <button type="button" class="btn link" @onclick="() => MostrarTodasChanged.InvokeAsync(true)">Mostrar las @Ocultas restantes (actualizadas)</button>
+        }
+        else if (Filtro is null && MostrarTodas && Dependencias.Count(d => d.Diagnostico.Estado == EstadoDiagnostico.Actualizada) > FilasActualizadasIniciales)
+        {
+            <button type="button" class="btn link" @onclick="() => MostrarTodasChanged.InvokeAsync(false)">Ocultar actualizadas</button>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>Con el filtro «Total», se muestran las primeras actualizadas y el resto queda plegado hasta que el usuario lo pida.</summary>
+    public const int FilasActualizadasIniciales = 3;
+
+    [Parameter, EditorRequired] public IReadOnlyList<DependenciaAnalizadaDto> Dependencias { get; set; } = [];
+
+    [Parameter] public EstadoDiagnostico? Filtro { get; set; }
+
+    [Parameter] public bool MostrarTodas { get; set; }
+
+    [Parameter] public EventCallback<bool> MostrarTodasChanged { get; set; }
+
+    /// <summary>Se abre el detalle de una librería; el segundo valor es el selector del botón que lo abrió (para devolverle el foco al cerrar).</summary>
+    [Parameter] public EventCallback<(DependenciaAnalizadaDto Dependencia, string Disparador)> AlSeleccionar { get; set; }
+
+    private IReadOnlyList<DependenciaAnalizadaDto> Filtradas =>
+        Dependencias.Select((d, i) => (d, i)).OrderBy(x => Presentacion.Orden(x.d.Diagnostico.Estado)).ThenBy(x => x.i).Select(x => x.d)
+            .Where(d => Filtro is null || d.Diagnostico.Estado == Filtro).ToList();
+
+    private IReadOnlyList<DependenciaAnalizadaDto> Visibles
+    {
+        get
+        {
+            var filtradas = Filtradas;
+            if (Filtro is not null || MostrarTodas) return filtradas;
+            var actualizadas = 0;
+            return filtradas.Where(d => d.Diagnostico.Estado != EstadoDiagnostico.Actualizada || ++actualizadas <= FilasActualizadasIniciales).ToList();
+        }
+    }
+
+    private int Ocultas => Filtradas.Count - Visibles.Count;
+
+    private Task Abrir(DependenciaAnalizadaDto dependencia, int indice) =>
+        AlSeleccionar.InvokeAsync((dependencia, $"button.nombre[data-indice='{indice}']"));
+
+    private static bool EsCopia(DependenciaAnalizadaDto d) =>
+        d.Diagnostico.Origen is OrigenDato.CacheVigente or OrigenDato.CacheExpirada && d.Diagnostico.FechaConsulta is not null;
+
+    private static string UltimaVersion(DependenciaAnalizadaDto d)
+    {
+        var i = d.Diagnostico.Indicadores;
+        if (i is null) return "—";
+        var (texto, conocido) = Presentacion.Indicador(i.UltimaVersionEstable, v => v ?? "—", "—");
+        return conocido ? texto : "No determinada";
+    }
+
+    private static string Recomendacion(DependenciaAnalizadaDto d)
+    {
+        if (d.Recomendaciones.Count > 0)
+        {
+            var r = d.Recomendaciones[0];
+            var texto = r.VersionSugerida is null ? $"{r.Etiqueta ?? "Recomendación"}: {r.Paquete}" : $"{r.Etiqueta ?? "Recomendación"}: {r.Paquete} {r.VersionSugerida}";
+            return d.Recomendaciones.Count > 1 ? $"{texto} (+{d.Recomendaciones.Count - 1})" : texto;
+        }
+
+        return d.Diagnostico.Estado == EstadoDiagnostico.Actualizada ? "—" : "Sin recomendación";
+    }
+}
